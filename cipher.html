@@ -1,172 +1,265 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Encryption/Decryption Interface</title>
-<style>
-  body {
-    font-family: Arial, sans-serif;
-    margin: 20px;
-  }
-  .container {
-    max-width: 600px;
-    margin: auto;
-  }
-  textarea, input {
-    width: calc(100% - 40px);
-    padding: 10px;
-    margin: 5px 0 15px;
-    font-size: 1em;
-  }
-  .field {
-    position: relative;
-  }
-  .field button {
-    position: absolute;
-    right: 10px;
-    top: calc(50% - 15px);
-    background: none;
-    border: none;
-    font-size: 1.5em;
-    cursor: pointer;
-  }
-  button.process-button {
-    width: 100%;
-    padding: 10px;
-    font-size: 1em;
-    cursor: pointer;
-  }
-  .result {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    background: #f9f9f9;
-    padding: 10px;
-    border: 1px solid #ccc;
-    position: relative;
-  }
-  #copyButton {
-    margin-top: 10px;
-    font-size: 1.5em;
-    cursor: pointer;
-    background: none;
-    border: none;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Encryption/Decryption Interface</title>
+  <style>
+    /* General Styling */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background-color: #f2f2f2;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background-color: #fff;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    /* Field Container Styling */
+    .field-container {
+      margin-bottom: 25px;
+    }
+    /* Header (Label + Button) Styling */
+    .field-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .field-header label {
+      font-weight: bold;
+      font-size: 1em;
+      color: #555;
+      flex: 1; /* Allow label to take up available space */
+      margin-right: 10px; /* Space between label and button */
+    }
+    /* Unified Emoji Button Styling */
+    .icon-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 1.5em; /* Consistent emoji size */
+      padding: 5px;
+      border-radius: 4px;
+      /* Removed transition to eliminate hover animations */
+      /* Removed hover effects to maintain uniform look */
+    }
+    .icon-button:focus {
+      outline: 2px solid #66afe9;
+    }
+    /* Input and Textarea Styling */
+    textarea, input, select {
+      width: 100%;
+      padding: 12px 15px;
+      font-size: 1em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      resize: vertical;
+      transition: border-color 0.3s;
+    }
+    textarea:focus, input:focus, select:focus {
+      border-color: #66afe9;
+      outline: none;
+    }
+    /* Process Button Styling */
+    .process-button {
+      width: 100%;
+      padding: 12px;
+      font-size: 1em;
+      background-color: #4CAF50; /* Green */
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    .process-button:hover {
+      background-color: #45a049;
+    }
+    .process-button:disabled {
+      background-color: #a5d6a7;
+      cursor: not-allowed;
+    }
+    /* Result Display Styling */
+    .result {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: #f9f9f9;
+      padding: 15px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      min-height: 120px;
+      font-family: monospace;
+      color: #333;
+      position: relative;
+    }
+    /* Tooltip Styling Removed */
+    /* Previously, custom tooltips were created using ::after pseudo-elements.
+       These have been removed to rely solely on native browser tooltips via the title attribute. */
+    /* Responsive Design */
+    @media (max-width: 600px) {
+      .field-header {
+        /* Maintain row layout but prevent wrapping */
+        flex-wrap: nowrap; /* Prevent wrapping */
+      }
+      .field-header label {
+        font-size: 0.9em;
+        margin-right: 8px;
+      }
+      .icon-button {
+        font-size: 1.3em; /* Adjust size for smaller screens */
+      }
+    }
+    /* Suggestion Text Styling */
+    .suggestion {
+      font-size: 0.9em;
+      color: #777;
+      margin-top: 5px;
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-  <h1>Encryption/Decryption Interface</h1>
-  
-  <label for="mode">Select Mode:</label>
-  <select id="mode">
-    <option value="encrypt">Encrypt</option>
-    <option value="decrypt">Decrypt</option>
-  </select>
+  <div class="container">
+    <h1>En/Decrypt</h1>
+    <!-- Mode Toggle Field -->
+    <div class="field-container">
+      <div class="field-header">
+        <label>Mode:</label>
+        <!-- Unified Emoji Button with 'icon-button' class -->
+        <button id="modeToggleButton" class="icon-button" title="Switch to Decrypt Mode" aria-label="Switch to Decrypt Mode">🔒</button>
+      </div>
+      <!-- Hidden input to store current mode -->
+      <input type="hidden" id="mode" value="encrypt">
+    </div>
 
-  <div class="field">
-    <label for="inputData">Input Data:</label>
-    <textarea id="inputData" rows="5" placeholder="Enter text to encrypt or ciphertext to decrypt"></textarea>
-    <button id="pasteButton" title="Paste from clipboard">📋</button>
+    <!-- Input Data Field -->
+    <div class="field-container">
+      <div class="field-header">
+        <label for="inputData" id="inputDataLabel">Input Data (Plaintext):</label>
+        <!-- Unified Emoji Button for Paste -->
+        <button id="pasteButton" class="icon-button" title="Paste from clipboard" aria-label="Paste from clipboard">📋➡️</button>
+      </div>
+      <textarea id="inputData" rows="5" placeholder="Enter text to encrypt"></textarea>
+      <div class="suggestion" id="inputSuggestion">Please enter the text you want to encrypt.</div>
+    </div>
+
+    <!-- Passphrase Field -->
+    <div class="field-container">
+      <div class="field-header">
+        <label for="passphrase">Passphrase:</label>
+        <!-- Unified Emoji Button for Show/Hide Passphrase -->
+        <button id="togglePassphrase" class="icon-button" title="Show passphrase" aria-label="Toggle passphrase visibility">👁️</button>
+      </div>
+      <input type="password" id="passphrase" placeholder="Enter passphrase">
+    </div>
+
+    <!-- Process Button -->
+    <button id="processButton" class="process-button" disabled>Process</button>
+
+    <!-- Result Display Area -->
+    <div class="field-container">
+      <div class="field-header">
+        <label for="result">Result:</label>
+        <!-- Unified Emoji Button for Copy -->
+        <button id="copyButton" class="icon-button" title="Copy to clipboard" aria-label="Copy to clipboard">📋⬅️</button>
+      </div>
+      <div id="result" class="result" readonly></div>
+    </div>
   </div>
 
-  <div class="field">
-    <label for="passphrase">Passphrase:</label>
-    <input type="password" id="passphrase" placeholder="Enter passphrase">
-    <button id="togglePassphrase" title="Show/Hide passphrase">👁️</button>
-  </div>
-
-  <button id="processButton" class="process-button">Process</button>
-
-  <h2>Result:</h2>
-  <div id="result" class="result"></div>
-  <button id="copyButton" title="Copy to clipboard">📋</button>
-</div>
-
-<script>
-  // Function to convert ArrayBuffer to Base64
-  function arrayBufferToBase64(buffer) {
-    let binary = '';
-    const bytes = new Uint8Array(buffer);
-    const len = bytes.byteLength;
-    for (let i = 0; i < len; i++) {
-      binary += String.fromCharCode(bytes[i]);
+  <script>
+    // Function to convert ArrayBuffer to Base64
+    function arrayBufferToBase64(buffer) {
+      let binary = '';
+      const bytes = new Uint8Array(buffer);
+      const len = bytes.byteLength;
+      for (let i = 0; i < len; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      return window.btoa(binary);
     }
-    return window.btoa(binary);
-  }
 
-  // Function to convert Base64 to ArrayBuffer
-  function base64ToArrayBuffer(base64) {
-    const binary_string = window.atob(base64);
-    const len = binary_string.length;
-    const bytes = new Uint8Array(len);
-    for (let i = 0; i < len; i++) {
-      bytes[i] = binary_string.charCodeAt(i);
+    // Function to convert Base64 to ArrayBuffer
+    function base64ToArrayBuffer(base64) {
+      const binary_string = window.atob(base64);
+      const len = binary_string.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i++) {
+        bytes[i] = binary_string.charCodeAt(i);
+      }
+      return bytes.buffer;
     }
-    return bytes.buffer;
-  }
 
-  // Encryption function
-  async function encryptData(data, passphrase) {
-    const enc = new TextEncoder();
+    // Encryption function
+    async function encryptData(data, passphrase) {
+      const enc = new TextEncoder();
 
-    // Generate random salt and iv
-    const salt = window.crypto.getRandomValues(new Uint8Array(16));
-    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+      // Generate random salt and iv
+      const salt = window.crypto.getRandomValues(new Uint8Array(16));
+      const iv = window.crypto.getRandomValues(new Uint8Array(12));
 
-    // Derive key using PBKDF2
-    const keyMaterial = await window.crypto.subtle.importKey(
-      'raw',
-      enc.encode(passphrase),
-      { name: 'PBKDF2' },
-      false,
-      ['deriveKey']
-    );
+      // Derive key using PBKDF2
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(passphrase),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
 
-    const key = await window.crypto.subtle.deriveKey(
-      {
-        name: 'PBKDF2',
-        salt: salt,
-        iterations: 100000,
-        hash: 'SHA-256',
-      },
-      keyMaterial,
-      { name: 'AES-GCM', length: 256 },
-      false,
-      ['encrypt']
-    );
+      const key = await window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt']
+      );
 
-    // Encrypt data
-    const encrypted = await window.crypto.subtle.encrypt(
-      {
-        name: 'AES-GCM',
-        iv: iv,
-        tagLength: 128,
-      },
-      key,
-      enc.encode(data)
-    );
+      // Encrypt data
+      const encrypted = await window.crypto.subtle.encrypt(
+        {
+          name: 'AES-GCM',
+          iv: iv,
+          tagLength: 128,
+        },
+        key,
+        enc.encode(data)
+      );
 
-    // Split ciphertext and auth tag
-    const encryptedBytes = new Uint8Array(encrypted);
-    const ciphertext = encryptedBytes.slice(0, -16);
-    const authTag = encryptedBytes.slice(-16);
+      // Split ciphertext and auth tag
+      const encryptedBytes = new Uint8Array(encrypted);
+      const ciphertext = encryptedBytes.slice(0, -16);
+      const authTag = encryptedBytes.slice(-16);
 
-    // Concatenate salt + iv + authTag + ciphertext
-    const combinedData = new Uint8Array(
-      salt.byteLength + iv.byteLength + authTag.byteLength + ciphertext.byteLength
-    );
-    combinedData.set(salt, 0);
-    combinedData.set(iv, salt.byteLength);
-    combinedData.set(authTag, salt.byteLength + iv.byteLength);
-    combinedData.set(ciphertext, salt.byteLength + iv.byteLength + authTag.byteLength);
+      // Concatenate salt + iv + authTag + ciphertext
+      const combinedData = new Uint8Array(
+        salt.byteLength + iv.byteLength + authTag.byteLength + ciphertext.byteLength
+      );
+      combinedData.set(salt, 0);
+      combinedData.set(iv, salt.byteLength);
+      combinedData.set(authTag, salt.byteLength + iv.byteLength);
+      combinedData.set(ciphertext, salt.byteLength + iv.byteLength + authTag.byteLength);
 
-    // Convert to Base64
-    return arrayBufferToBase64(combinedData.buffer);
-  }
+      // Convert to Base64
+      return arrayBufferToBase64(combinedData.buffer);
+    }
 
-  // Decryption function
-  async function decryptData(encryptedDataBase64, passphrase) {
-    try {
+    // Decryption function
+    async function decryptData(encryptedDataBase64, passphrase) {
       const enc = new TextEncoder();
       const encryptedData = base64ToArrayBuffer(encryptedDataBase64);
       const encryptedBytes = new Uint8Array(encryptedData);
@@ -215,83 +308,163 @@
 
       const decoder = new TextDecoder();
       return decoder.decode(decrypted);
-    } catch (error) {
-      console.error('Decryption failed:', error);
-      return null;
-    }
-  }
-
-  // Update result function
-  async function updateResult() {
-    const mode = document.getElementById('mode').value;
-    const inputData = document.getElementById('inputData').value.trim();
-    const passphrase = document.getElementById('passphrase').value;
-    const resultElement = document.getElementById('result');
-
-    if (!inputData || !passphrase) {
-      resultElement.textContent = '';
-      return;
     }
 
-    if (mode === 'encrypt') {
-      const encryptedData = await encryptData(inputData, passphrase);
-      resultElement.textContent = encryptedData;
-    } else if (mode === 'decrypt') {
-      const decryptedData = await decryptData(inputData, passphrase);
-      if (decryptedData !== null) {
-        resultElement.textContent = decryptedData;
+    // Function to update input labels and placeholders based on mode
+    function updateInputFields(mode) {
+      const inputDataLabel = document.getElementById('inputDataLabel');
+      const inputData = document.getElementById('inputData');
+      const inputSuggestion = document.getElementById('inputSuggestion');
+
+      if (mode === 'encrypt') {
+        inputDataLabel.textContent = 'Input Data (Plaintext):';
+        inputData.placeholder = 'Enter text to encrypt';
+        inputSuggestion.textContent = 'Please enter the text you want to encrypt.';
+      } else if (mode === 'decrypt') {
+        inputDataLabel.textContent = 'Input Data (Ciphertext):';
+        inputData.placeholder = 'Enter ciphertext to decrypt';
+        inputSuggestion.textContent = 'Please enter the ciphertext you want to decrypt.';
+      }
+    }
+
+    // Function to validate input fields and enable/disable Process button
+    function validateInputs() {
+      const inputData = document.getElementById('inputData').value.trim();
+      const passphrase = document.getElementById('passphrase').value.trim();
+      const processButton = document.getElementById('processButton');
+
+      if (inputData && passphrase) {
+        processButton.disabled = false;
       } else {
-        resultElement.textContent = 'Decryption failed. Incorrect passphrase or corrupted data.';
+        processButton.disabled = true;
       }
     }
-  }
 
-  // Event listeners for input changes
-  document.getElementById('mode').addEventListener('change', updateResult);
-  document.getElementById('inputData').addEventListener('input', updateResult);
-  document.getElementById('passphrase').addEventListener('input', updateResult);
+    // Update result function with improved error handling
+    async function updateResult() {
+      const mode = document.getElementById('mode').value;
+      const inputData = document.getElementById('inputData').value.trim();
+      const passphrase = document.getElementById('passphrase').value;
+      const resultElement = document.getElementById('result');
+      const processButton = document.getElementById('processButton');
 
-  // Process button
-  document.getElementById('processButton').addEventListener('click', updateResult);
+      // If either inputData or passphrase is empty, reset the result and return
+      if (!inputData || !passphrase) {
+        resultElement.textContent = '';
+        processButton.disabled = true;
+        return;
+      }
 
-  // Paste button
-  document.getElementById('pasteButton').addEventListener('click', async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      document.getElementById('inputData').value = text;
-      updateResult();
-    } catch (err) {
-      alert('Failed to read clipboard contents: ' + err);
-    }
-  });
+      // Disable the Process button and show it's processing
+      processButton.disabled = true;
+      processButton.textContent = 'Processing...';
 
-  // Copy button
-  document.getElementById('copyButton').addEventListener('click', async () => {
-    const resultText = document.getElementById('result').textContent;
-    if (resultText) {
       try {
-        await navigator.clipboard.writeText(resultText);
-        alert('Result copied to clipboard.');
-      } catch (err) {
-        alert('Failed to copy to clipboard: ' + err);
+        let output;
+        if (mode === 'encrypt') {
+          output = await encryptData(inputData, passphrase);
+          resultElement.textContent = output;
+          processButton.textContent = 'Process'; // Reset button text
+        } else if (mode === 'decrypt') {
+          output = await decryptData(inputData, passphrase);
+          resultElement.textContent = output;
+          processButton.textContent = 'Process'; // Reset button text
+        }
+      } catch (error) {
+        console.error('Operation failed:', error);
+        if (mode === 'decrypt') {
+          resultElement.textContent = 'Decryption failed. Incorrect passphrase or corrupted data.';
+        } else {
+          resultElement.textContent = 'Encryption failed. Please try again.';
+        }
+        processButton.textContent = 'Process'; // Reset button text
+      } finally {
+        // Re-enable the Process button
+        processButton.disabled = false;
       }
-    } else {
-      alert('No result to copy.');
     }
-  });
 
-  // Toggle passphrase visibility
-  document.getElementById('togglePassphrase').addEventListener('click', () => {
-    const passInput = document.getElementById('passphrase');
-    const toggleButton = document.getElementById('togglePassphrase');
-    if (passInput.type === 'password') {
-      passInput.type = 'text';
-      toggleButton.textContent = '🙈';
-    } else {
-      passInput.type = 'password';
-      toggleButton.textContent = '👁️';
-    }
-  });
-</script>
+    // Event listener for Mode Toggle Button
+    document.getElementById('modeToggleButton').addEventListener('click', () => {
+      const modeInput = document.getElementById('mode');
+      const modeToggleButton = document.getElementById('modeToggleButton');
+
+      // Toggle mode value
+      if (modeInput.value === 'encrypt') {
+        modeInput.value = 'decrypt';
+        modeToggleButton.textContent = '🔓';
+        modeToggleButton.title = 'Switch to Encrypt Mode';
+        modeToggleButton.setAttribute('aria-label', 'Switch to Encrypt Mode');
+        updateInputFields('decrypt');
+      } else {
+        modeInput.value = 'encrypt';
+        modeToggleButton.textContent = '🔒';
+        modeToggleButton.title = 'Switch to Decrypt Mode';
+        modeToggleButton.setAttribute('aria-label', 'Switch to Decrypt Mode');
+        updateInputFields('encrypt');
+      }
+
+      // Clear previous results and validate inputs
+      document.getElementById('result').textContent = '';
+      validateInputs();
+    });
+
+    // Event listener for Input Data and Passphrase fields to validate inputs
+    document.getElementById('inputData').addEventListener('input', validateInputs);
+    document.getElementById('passphrase').addEventListener('input', validateInputs);
+
+    // Event listener for Process button
+    document.getElementById('processButton').addEventListener('click', updateResult);
+
+    // Paste button functionality
+    document.getElementById('pasteButton').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        document.getElementById('inputData').value = text;
+        validateInputs();
+        updateResult();
+      } catch (err) {
+        alert('Failed to read clipboard contents: ' + err);
+      }
+    });
+
+    // Copy button functionality
+    document.getElementById('copyButton').addEventListener('click', async () => {
+      const resultText = document.getElementById('result').textContent;
+      if (resultText && resultText !== 'Decryption failed. Incorrect passphrase or corrupted data.' && resultText !== 'Encryption failed. Please try again.') {
+        try {
+          await navigator.clipboard.writeText(resultText);
+          alert('Result copied to clipboard.');
+        } catch (err) {
+          alert('Failed to copy to clipboard: ' + err);
+        }
+      } else {
+        alert('No valid result to copy.');
+      }
+    });
+
+    // Toggle passphrase visibility functionality
+    document.getElementById('togglePassphrase').addEventListener('click', () => {
+      const passInput = document.getElementById('passphrase');
+      const toggleButton = document.getElementById('togglePassphrase');
+      if (passInput.type === 'password') {
+        passInput.type = 'text';
+        toggleButton.textContent = '🙈';
+        toggleButton.title = 'Hide passphrase';
+        toggleButton.setAttribute('aria-label', 'Hide passphrase');
+      } else {
+        passInput.type = 'password';
+        toggleButton.textContent = '👁️';
+        toggleButton.title = 'Show passphrase';
+        toggleButton.setAttribute('aria-label', 'Show passphrase');
+      }
+    });
+
+    // Initial validation and setup on page load
+    window.addEventListener('load', () => {
+      validateInputs();
+      updateInputFields('encrypt'); // Initialize input fields
+    });
+  </script>
 </body>
 </html>

@@ -19,7 +19,7 @@ QKqpNLtiPDxzEeZFgP4Z34jiwWYQeUlumsrNXYCMfRZoZohQD07cy6WH0IDB2QsnBvko
 
 ## Encoder / Decoder 
 
-[Example](./cipher.html ':include :type=iframe width=100% height=600px')
+[Example](./cipher.html ':include :type=iframe width=100% height=900px')
 
 
 ## Features
