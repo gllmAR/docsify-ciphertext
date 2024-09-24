@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Encryption/Decryption Interface</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+  }
+  .container {
+    max-width: 600px;
+    margin: auto;
+  }
+  textarea, input {
+    width: 100%;
+    padding: 10px;
+    margin: 5px 0 15px;
+    font-size: 1em;
+  }
+  button {
+    padding: 10px;
+    font-size: 1em;
+    cursor: pointer;
+  }
+  .result {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background: #f9f9f9;
+    padding: 10px;
+    border: 1px solid #ccc;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Encryption/Decryption Interface</h1>
+  <label for="mode">Select Mode:</label>
+  <select id="mode">
+    <option value="encrypt">Encrypt</option>
+    <option value="decrypt">Decrypt</option>
+  </select>
+
+  <label for="inputData">Input Data:</label>
+  <textarea id="inputData" rows="5" placeholder="Enter text to encrypt or ciphertext to decrypt"></textarea>
+
+  <label for="passphrase">Passphrase:</label>
+  <input type="password" id="passphrase" placeholder="Enter passphrase">
+
+  <button id="processButton">Process</button>
+
+  <h2>Result:</h2>
+  <div id="result" class="result"></div>
+</div>
+
+<script>
+  // Function to convert ArrayBuffer to Base64
+  function arrayBufferToBase64(buffer) {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return window.btoa(binary);
+  }
+
+  // Function to convert Base64 to ArrayBuffer
+  function base64ToArrayBuffer(base64) {
+    const binary_string = window.atob(base64);
+    const len = binary_string.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary_string.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+
+  // Encryption function
+  async function encryptData(data, passphrase) {
+    const enc = new TextEncoder();
+
+    // Generate random salt and iv
+    const salt = window.crypto.getRandomValues(new Uint8Array(16));
+    const iv = window.crypto.getRandomValues(new Uint8Array(12));
+
+    // Derive key using PBKDF2
+    const keyMaterial = await window.crypto.subtle.importKey(
+      'raw',
+      enc.encode(passphrase),
+      { name: 'PBKDF2' },
+      false,
+      ['deriveKey']
+    );
+
+    const key = await window.crypto.subtle.deriveKey(
+      {
+        name: 'PBKDF2',
+        salt: salt,
+        iterations: 100000,
+        hash: 'SHA-256',
+      },
+      keyMaterial,
+      { name: 'AES-GCM', length: 256 },
+      false,
+      ['encrypt']
+    );
+
+    // Encrypt data
+    const encrypted = await window.crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv,
+        tagLength: 128,
+      },
+      key,
+      enc.encode(data)
+    );
+
+    // Split ciphertext and auth tag
+    const encryptedBytes = new Uint8Array(encrypted);
+    const ciphertext = encryptedBytes.slice(0, -16);
+    const authTag = encryptedBytes.slice(-16);
+
+    // Concatenate salt + iv + authTag + ciphertext
+    const combinedData = new Uint8Array(
+      salt.byteLength + iv.byteLength + authTag.byteLength + ciphertext.byteLength
+    );
+    combinedData.set(salt, 0);
+    combinedData.set(iv, salt.byteLength);
+    combinedData.set(authTag, salt.byteLength + iv.byteLength);
+    combinedData.set(ciphertext, salt.byteLength + iv.byteLength + authTag.byteLength);
+
+    // Convert to Base64
+    return arrayBufferToBase64(combinedData.buffer);
+  }
+
+  // Decryption function
+  async function decryptData(encryptedDataBase64, passphrase) {
+    try {
+      const enc = new TextEncoder();
+      const encryptedData = base64ToArrayBuffer(encryptedDataBase64);
+      const encryptedBytes = new Uint8Array(encryptedData);
+
+      // Extract salt, iv, authTag, and ciphertext
+      const salt = encryptedBytes.slice(0, 16);
+      const iv = encryptedBytes.slice(16, 28);
+      const authTag = encryptedBytes.slice(28, 44);
+      const ciphertext = encryptedBytes.slice(44);
+
+      // Derive key using PBKDF2
+      const keyMaterial = await window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(passphrase),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+
+      const key = await window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: 100000,
+          hash: 'SHA-256',
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['decrypt']
+      );
+
+      // Combine ciphertext and authTag for decryption
+      const dataToDecrypt = new Uint8Array([...ciphertext, ...authTag]);
+
+      // Decrypt data
+      const decrypted = await window.crypto.subtle.decrypt(
+        {
+          name: 'AES-GCM',
+          iv: iv,
+          tagLength: 128,
+        },
+        key,
+        dataToDecrypt.buffer
+      );
+
+      const decoder = new TextDecoder();
+      return decoder.decode(decrypted);
+    } catch (error) {
+      console.error('Decryption failed:', error);
+      return null;
+    }
+  }
+
+  document.getElementById('processButton').addEventListener('click', async () => {
+    const mode = document.getElementById('mode').value;
+    const inputData = document.getElementById('inputData').value.trim();
+    const passphrase = document.getElementById('passphrase').value;
+    const resultElement = document.getElementById('result');
+
+    if (!inputData || !passphrase) {
+      alert('Please enter both the input data and passphrase.');
+      return;
+    }
+
+    if (mode === 'encrypt') {
+      const encryptedData = await encryptData(inputData, passphrase);
+      resultElement.textContent = encryptedData;
+    } else if (mode === 'decrypt') {
+      const decryptedData = await decryptData(inputData, passphrase);
+      if (decryptedData !== null) {
+        resultElement.textContent = decryptedData;
+      } else {
+        resultElement.textContent = 'Decryption failed. Incorrect passphrase or corrupted data.';
+      }
+    }
+  });
+</script>
+</body>
+</html>
