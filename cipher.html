@@ -98,6 +98,22 @@
       transform: translate(-50%, -50%);
       font-size: 1.5em;
     }
+    /* Notification Area Styling */
+    .notification {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background-color: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 4px;
+      opacity: 0;
+      transition: opacity 0.5s;
+      z-index: 1000;
+    }
+    .notification.show {
+      opacity: 1;
+    }
     /* Responsive Design */
     @media (max-width: 600px) {
       .field-header {
@@ -169,6 +185,9 @@
     </div>
   </div>
 
+  <!-- Notification Area -->
+  <div id="notification" class="notification"></div>
+
   <script>
     // Debounce Function to Limit Frequency of Function Calls
     function debounce(func, delay) {
@@ -177,6 +196,16 @@
         clearTimeout(timeout);
         timeout = setTimeout(() => func.apply(this, args), delay);
       };
+    }
+
+    // Function to show notifications
+    function showNotification(message, duration = 3000) {
+      const notification = document.getElementById('notification');
+      notification.textContent = message;
+      notification.classList.add('show');
+      setTimeout(() => {
+        notification.classList.remove('show');
+      }, duration);
     }
 
     // Function to convert ArrayBuffer to Base64
@@ -400,6 +429,9 @@
           output = await decryptData(inputData, passphrase);
           resultElement.textContent = output;
         }
+
+        // Store output for potential bidirectional operation
+        sessionStorage.setItem('lastOutput', output);
       } catch (error) {
         console.error('Operation failed:', error);
         if (mode === 'decrypt') {
@@ -413,32 +445,54 @@
     }
 
     // Debounced version of processData to prevent excessive calls
-    const debouncedProcessData = debounce(processData, 100); // Reduced delay to 300ms
+    const debouncedProcessData = debounce(processData, 200); // Reduced delay to 200ms
 
-    // Event listener for Mode Toggle Button
-    document.getElementById('modeToggleButton').addEventListener('click', () => {
+    // Function to handle mode toggling with bidirectional support
+    async function handleModeToggle() {
       const modeInput = document.getElementById('mode');
       const modeToggleButton = document.getElementById('modeToggleButton');
+      const resultElement = document.getElementById('result');
+
+      // Determine the new mode
+      const newMode = modeInput.value === 'encrypt' ? 'decrypt' : 'encrypt';
+
+      // Check if there's a valid result to potentially swap
+      const lastOutput = sessionStorage.getItem('lastOutput');
+      const hasValidOutput = lastOutput && lastOutput !== 'Decryption failed. Incorrect passphrase or corrupted data.' && lastOutput !== 'Encryption failed. Please try again.';
+
+      if (hasValidOutput) {
+        // Automatically swap input with last output without prompting
+        document.getElementById('inputData').value = lastOutput;
+        // Reset background colors
+        document.getElementById('inputData').classList.remove('error');
+        document.getElementById('passphrase').classList.remove('error');
+        // Clear the result
+        resultElement.textContent = '';
+        // Optionally, notify the user about the swap
+        showNotification(`Mode switched to ${newMode}. Input field updated with the last result.`);
+      }
 
       // Toggle mode value
-      if (modeInput.value === 'encrypt') {
-        modeInput.value = 'decrypt';
-        modeToggleButton.textContent = '🔓';
-        modeToggleButton.title = 'Switch to Encrypt Mode';
-        modeToggleButton.setAttribute('aria-label', 'Switch to Encrypt Mode');
-        updateInputFields('decrypt');
-      } else {
-        modeInput.value = 'encrypt';
+      modeInput.value = newMode;
+      if (newMode === 'encrypt') {
         modeToggleButton.textContent = '🔒';
         modeToggleButton.title = 'Switch to Decrypt Mode';
         modeToggleButton.setAttribute('aria-label', 'Switch to Decrypt Mode');
-        updateInputFields('encrypt');
+      } else {
+        modeToggleButton.textContent = '🔓';
+        modeToggleButton.title = 'Switch to Encrypt Mode';
+        modeToggleButton.setAttribute('aria-label', 'Switch to Encrypt Mode');
       }
 
-      // Clear previous results and trigger processing
-      document.getElementById('result').textContent = '';
+      // Update input fields based on the new mode
+      updateInputFields(newMode);
+
+      // Trigger processing with the new input and mode
       debouncedProcessData();
-    });
+    }
+
+    // Event listener for Mode Toggle Button
+    document.getElementById('modeToggleButton').addEventListener('click', handleModeToggle);
 
     // Event listeners for Input Data and Passphrase fields to trigger processing on input
     document.getElementById('inputData').addEventListener('input', debouncedProcessData);
@@ -450,8 +504,11 @@
         const text = await navigator.clipboard.readText();
         document.getElementById('inputData').value = text;
         debouncedProcessData();
+        // Notify user of successful paste
+        showNotification('Content pasted successfully.');
       } catch (err) {
-        alert('Failed to read clipboard contents: ' + err);
+        // Handle paste failure silently or notify in a non-intrusive way
+        showNotification('Failed to read clipboard contents.', 4000);
       }
     });
 
@@ -461,12 +518,15 @@
       if (resultText && resultText !== 'Decryption failed. Incorrect passphrase or corrupted data.' && resultText !== 'Encryption failed. Please try again.') {
         try {
           await navigator.clipboard.writeText(resultText);
-          alert('Result copied to clipboard.');
+          // Notify user of successful copy
+          showNotification('Result copied to clipboard.');
         } catch (err) {
-          alert('Failed to copy to clipboard: ' + err);
+          // Notify user of copy failure
+          showNotification('Failed to copy to clipboard.', 4000);
         }
       } else {
-        alert('No valid result to copy.');
+        // Notify user that there's nothing valid to copy
+        showNotification('No valid result to copy.', 4000);
       }
     });
 
