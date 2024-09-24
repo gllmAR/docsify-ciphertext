@@ -114,11 +114,12 @@ Here’s an example of how encrypted content would look in your markdown:
 ```markdown
 # My Secret Links
 
-Here are my secret links. Decrypt them using the 🔑 key icon.
+Here are my secret links. Decrypt them using the 🔑 key icon. Remove the backslash "\" to make it work
 
-```ciphertext
+\```ciphertext
 KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4ZfR1
-```
+\```
+
 ```
 
 After entering the passphrase, users will be able to see the decrypted content, which may look like a URL, text, or any other data you encrypted.
