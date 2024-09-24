@@ -156,8 +156,6 @@
 
     // Hook to handle the click event on the key and lock/unlock buttons
     hook.doneEach(function() {
-      const passphrase = getPassphrase(); // Attempt to get passphrase from localStorage
-      
       document.querySelectorAll('.decrypt-key').forEach(keyButton => {
         keyButton.addEventListener('click', function() {
           const ciphertextElement = keyButton.nextElementSibling.nextElementSibling.querySelector('code');
@@ -170,9 +168,9 @@
         lockButton.addEventListener('click', function() {
           const ciphertextElement = lockButton.nextElementSibling.querySelector('code');
           const ciphertext = ciphertextElement.textContent.trim();
-          const isDecrypted = ciphertextElement.getAttribute('data-decrypted') === 'true';
-
-          if (isDecrypted) {
+          const passphrase = getPassphrase(); // Fetch passphrase from localStorage every time
+          
+          if (ciphertextElement.getAttribute('data-decrypted') === 'true') {
             toggleDecryptedContent(ciphertextElement, null, ciphertext, lockButton); // Revert to encrypted text
           } else if (passphrase) {
             decrypt(ciphertext, passphrase).then(decryptedText => {
