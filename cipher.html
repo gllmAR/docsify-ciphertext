@@ -64,30 +64,17 @@
       border-radius: 4px;
       box-sizing: border-box;
       resize: vertical;
-      transition: border-color 0.3s;
+      transition: border-color 0.3s, background-color 0.3s;
+      background-color: #f2f2f2; /* Light grey for normal operation */
     }
     textarea:focus, input:focus, select:focus {
       border-color: #66afe9;
       outline: none;
     }
-    /* Process Button Styling */
-    .process-button {
-      width: 100%;
-      padding: 12px;
-      font-size: 1em;
-      background-color: #4CAF50; /* Green */
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      transition: background-color 0.3s;
-    }
-    .process-button:hover {
-      background-color: #45a049;
-    }
-    .process-button:disabled {
-      background-color: #a5d6a7;
-      cursor: not-allowed;
+    /* Input Error Styling */
+    .error {
+      background-color: #ffe6e6; /* Light red for error */
+      border-color: #ff4d4d;
     }
     /* Result Display Styling */
     .result {
@@ -102,9 +89,15 @@
       color: #333;
       position: relative;
     }
-    /* Tooltip Styling Removed */
-    /* Previously, custom tooltips were created using ::after pseudo-elements.
-       These have been removed to rely solely on native browser tooltips via the title attribute. */
+    /* Spinner Styling */
+    .spinner {
+      display: none;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 1.5em;
+    }
     /* Responsive Design */
     @media (max-width: 600px) {
       .field-header {
@@ -129,7 +122,8 @@
 </head>
 <body>
   <div class="container">
-    <h1>En/Decrypt</h1>
+    <h1>Encryption/Decryption Interface</h1>
+    
     <!-- Mode Toggle Field -->
     <div class="field-container">
       <div class="field-header">
@@ -162,21 +156,29 @@
       <input type="password" id="passphrase" placeholder="Enter passphrase">
     </div>
 
-    <!-- Process Button -->
-    <button id="processButton" class="process-button" disabled>Process</button>
-
     <!-- Result Display Area -->
-    <div class="field-container">
+    <div class="field-container" style="position: relative;">
       <div class="field-header">
         <label for="result">Result:</label>
         <!-- Unified Emoji Button for Copy -->
         <button id="copyButton" class="icon-button" title="Copy to clipboard" aria-label="Copy to clipboard">📋⬅️</button>
       </div>
       <div id="result" class="result" readonly></div>
+      <!-- Spinner Indicator -->
+      <div id="spinner" class="spinner">🔄</div>
     </div>
   </div>
 
   <script>
+    // Debounce Function to Limit Frequency of Function Calls
+    function debounce(func, delay) {
+      let timeout;
+      return function(...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), delay);
+      };
+    }
+
     // Function to convert ArrayBuffer to Base64
     function arrayBufferToBase64(buffer) {
       let binary = '';
@@ -327,62 +329,91 @@
       }
     }
 
-    // Function to validate input fields and enable/disable Process button
+    // Function to validate input fields and determine if processing should occur
     function validateInputs() {
       const inputData = document.getElementById('inputData').value.trim();
       const passphrase = document.getElementById('passphrase').value.trim();
-      const processButton = document.getElementById('processButton');
+      const mode = document.getElementById('mode').value;
 
-      if (inputData && passphrase) {
-        processButton.disabled = false;
+      const inputField = document.getElementById('inputData');
+      const passphraseField = document.getElementById('passphrase');
+
+      let valid = true;
+
+      // Validate Input Data
+      if (!inputData) {
+        inputField.classList.add('error');
+        valid = false;
       } else {
-        processButton.disabled = true;
+        inputField.classList.remove('error');
       }
+
+      // Validate Passphrase
+      if (!passphrase) {
+        passphraseField.classList.add('error');
+        valid = false;
+      } else {
+        passphraseField.classList.remove('error');
+      }
+
+      return valid;
     }
 
-    // Update result function with improved error handling
-    async function updateResult() {
+    // Function to display the spinner
+    function showSpinner() {
+      document.getElementById('spinner').style.display = 'block';
+    }
+
+    // Function to hide the spinner
+    function hideSpinner() {
+      document.getElementById('spinner').style.display = 'none';
+    }
+
+    // Function to display error messages in the result area
+    function displayError(message) {
+      const resultElement = document.getElementById('result');
+      resultElement.textContent = message;
+    }
+
+    // Function to process encryption or decryption
+    async function processData() {
+      const isValid = validateInputs();
+      if (!isValid) {
+        displayError('');
+        return;
+      }
+
       const mode = document.getElementById('mode').value;
       const inputData = document.getElementById('inputData').value.trim();
       const passphrase = document.getElementById('passphrase').value;
       const resultElement = document.getElementById('result');
-      const processButton = document.getElementById('processButton');
 
-      // If either inputData or passphrase is empty, reset the result and return
-      if (!inputData || !passphrase) {
-        resultElement.textContent = '';
-        processButton.disabled = true;
-        return;
-      }
-
-      // Disable the Process button and show it's processing
-      processButton.disabled = true;
-      processButton.textContent = 'Processing...';
+      showSpinner();
+      displayError('');
 
       try {
         let output;
         if (mode === 'encrypt') {
           output = await encryptData(inputData, passphrase);
           resultElement.textContent = output;
-          processButton.textContent = 'Process'; // Reset button text
         } else if (mode === 'decrypt') {
           output = await decryptData(inputData, passphrase);
           resultElement.textContent = output;
-          processButton.textContent = 'Process'; // Reset button text
         }
       } catch (error) {
         console.error('Operation failed:', error);
         if (mode === 'decrypt') {
-          resultElement.textContent = 'Decryption failed. Incorrect passphrase or corrupted data.';
+          displayError('Decryption failed. Incorrect passphrase or corrupted data.');
         } else {
-          resultElement.textContent = 'Encryption failed. Please try again.';
+          displayError('Encryption failed. Please try again.');
         }
-        processButton.textContent = 'Process'; // Reset button text
       } finally {
-        // Re-enable the Process button
-        processButton.disabled = false;
+        hideSpinner();
       }
     }
+
+    // Debounced version of processData to prevent excessive calls
+    const debouncedProcessData = debounce(processData, 100); // Reduced delay to 300ms
 
     // Event listener for Mode Toggle Button
     document.getElementById('modeToggleButton').addEventListener('click', () => {
@@ -404,25 +435,21 @@
         updateInputFields('encrypt');
       }
 
-      // Clear previous results and validate inputs
+      // Clear previous results and trigger processing
       document.getElementById('result').textContent = '';
-      validateInputs();
+      debouncedProcessData();
     });
 
-    // Event listener for Input Data and Passphrase fields to validate inputs
-    document.getElementById('inputData').addEventListener('input', validateInputs);
-    document.getElementById('passphrase').addEventListener('input', validateInputs);
-
-    // Event listener for Process button
-    document.getElementById('processButton').addEventListener('click', updateResult);
+    // Event listeners for Input Data and Passphrase fields to trigger processing on input
+    document.getElementById('inputData').addEventListener('input', debouncedProcessData);
+    document.getElementById('passphrase').addEventListener('input', debouncedProcessData);
 
     // Paste button functionality
     document.getElementById('pasteButton').addEventListener('click', async () => {
       try {
         const text = await navigator.clipboard.readText();
         document.getElementById('inputData').value = text;
-        validateInputs();
-        updateResult();
+        debouncedProcessData();
       } catch (err) {
         alert('Failed to read clipboard contents: ' + err);
       }
@@ -460,10 +487,11 @@
       }
     });
 
-    // Initial validation and setup on page load
+    // Initial setup on page load
     window.addEventListener('load', () => {
       validateInputs();
       updateInputFields('encrypt'); // Initialize input fields
+      processData(); // Trigger initial processing if needed
     });
   </script>
 </body>
