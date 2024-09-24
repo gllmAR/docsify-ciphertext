@@ -13,12 +13,25 @@
     margin: auto;
   }
   textarea, input {
-    width: 100%;
+    width: calc(100% - 40px);
     padding: 10px;
     margin: 5px 0 15px;
     font-size: 1em;
   }
-  button {
+  .field {
+    position: relative;
+  }
+  .field button {
+    position: absolute;
+    right: 10px;
+    top: calc(50% - 15px);
+    background: none;
+    border: none;
+    font-size: 1.5em;
+    cursor: pointer;
+  }
+  button.process-button {
+    width: 100%;
     padding: 10px;
     font-size: 1em;
     cursor: pointer;
@@ -29,28 +42,44 @@
     background: #f9f9f9;
     padding: 10px;
     border: 1px solid #ccc;
+    position: relative;
+  }
+  #copyButton {
+    margin-top: 10px;
+    font-size: 1.5em;
+    cursor: pointer;
+    background: none;
+    border: none;
   }
 </style>
 </head>
 <body>
 <div class="container">
   <h1>Encryption/Decryption Interface</h1>
+  
   <label for="mode">Select Mode:</label>
   <select id="mode">
     <option value="encrypt">Encrypt</option>
     <option value="decrypt">Decrypt</option>
   </select>
 
-  <label for="inputData">Input Data:</label>
-  <textarea id="inputData" rows="5" placeholder="Enter text to encrypt or ciphertext to decrypt"></textarea>
+  <div class="field">
+    <label for="inputData">Input Data:</label>
+    <textarea id="inputData" rows="5" placeholder="Enter text to encrypt or ciphertext to decrypt"></textarea>
+    <button id="pasteButton" title="Paste from clipboard">📋</button>
+  </div>
 
-  <label for="passphrase">Passphrase:</label>
-  <input type="password" id="passphrase" placeholder="Enter passphrase">
+  <div class="field">
+    <label for="passphrase">Passphrase:</label>
+    <input type="password" id="passphrase" placeholder="Enter passphrase">
+    <button id="togglePassphrase" title="Show/Hide passphrase">👁️</button>
+  </div>
 
-  <button id="processButton">Process</button>
+  <button id="processButton" class="process-button">Process</button>
 
   <h2>Result:</h2>
   <div id="result" class="result"></div>
+  <button id="copyButton" title="Copy to clipboard">📋</button>
 </div>
 
 <script>
@@ -192,14 +221,15 @@
     }
   }
 
-  document.getElementById('processButton').addEventListener('click', async () => {
+  // Update result function
+  async function updateResult() {
     const mode = document.getElementById('mode').value;
     const inputData = document.getElementById('inputData').value.trim();
     const passphrase = document.getElementById('passphrase').value;
     const resultElement = document.getElementById('result');
 
     if (!inputData || !passphrase) {
-      alert('Please enter both the input data and passphrase.');
+      resultElement.textContent = '';
       return;
     }
 
@@ -213,6 +243,53 @@
       } else {
         resultElement.textContent = 'Decryption failed. Incorrect passphrase or corrupted data.';
       }
+    }
+  }
+
+  // Event listeners for input changes
+  document.getElementById('mode').addEventListener('change', updateResult);
+  document.getElementById('inputData').addEventListener('input', updateResult);
+  document.getElementById('passphrase').addEventListener('input', updateResult);
+
+  // Process button
+  document.getElementById('processButton').addEventListener('click', updateResult);
+
+  // Paste button
+  document.getElementById('pasteButton').addEventListener('click', async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      document.getElementById('inputData').value = text;
+      updateResult();
+    } catch (err) {
+      alert('Failed to read clipboard contents: ' + err);
+    }
+  });
+
+  // Copy button
+  document.getElementById('copyButton').addEventListener('click', async () => {
+    const resultText = document.getElementById('result').textContent;
+    if (resultText) {
+      try {
+        await navigator.clipboard.writeText(resultText);
+        alert('Result copied to clipboard.');
+      } catch (err) {
+        alert('Failed to copy to clipboard: ' + err);
+      }
+    } else {
+      alert('No result to copy.');
+    }
+  });
+
+  // Toggle passphrase visibility
+  document.getElementById('togglePassphrase').addEventListener('click', () => {
+    const passInput = document.getElementById('passphrase');
+    const toggleButton = document.getElementById('togglePassphrase');
+    if (passInput.type === 'password') {
+      passInput.type = 'text';
+      toggleButton.textContent = '🙈';
+    } else {
+      passInput.type = 'password';
+      toggleButton.textContent = '👁️';
     }
   });
 </script>
