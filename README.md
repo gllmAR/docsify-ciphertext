@@ -19,7 +19,7 @@ KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4
 
 ## Encoder / Decoder 
 
-[ciphertext](./cipher.html ':include :type=iframe width=100% height=900px')
+[ciphertext](./cipher.html ':include :type=iframe width=100% height=800px')
 
 * [ciphertext encrypt/decrypt ](/cipher.html)
 
