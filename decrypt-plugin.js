@@ -113,8 +113,8 @@
 
       while ((match = regex.exec(html)) !== null) {
         const ciphertext = match[1].trim();
-        const keyButton = `<span class="decrypt-key" style="cursor: pointer;">🔑</span>`;
-        const lockButton = `<span class="decrypt-toggle" style="cursor: pointer;">🔒</span>`;
+        const keyButton = `<span class="decrypt-key" style="cursor: pointer;  ">🔑</span>`;
+        const lockButton = `<span class="decrypt-toggle" style="cursor: pointer;  float: right;">🔒</span>`;
 
         // Insert buttons before the ciphertext block, and ensure 'data-lang' is set
         const placeholder = `<pre data-lang="ciphertext"><code class="lang-ciphertext" data-decrypted="false">${ciphertext}</code></pre>`;
