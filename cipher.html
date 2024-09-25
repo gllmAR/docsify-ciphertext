@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <meta name="viewport"
+  content="width=device-width, initial-scale=1, minimum-scale=1.0, shrink-to-fit=no, viewport-fit=cover">
   <meta charset="UTF-8">
   <title>Encryption/Decryption Interface</title>
   <style>
@@ -55,13 +57,14 @@
     textarea, input {
       width: 100%;
       padding: 12px;
-      font-size: 1em;
+      font-size: 16px; /* Set font size to 16px or higher to prevent zoom on mobile */
       border: 1px solid #ccc;
       border-radius: 4px;
       box-sizing: border-box;
       resize: vertical;
       transition: border-color 0.3s, background-color 0.3s;
       background-color: #f2f2f2;
+      min-height: 48px; /* Ensures touchable size is large enough */
     }
     textarea:focus, input:focus {
       border-color: #66afe9;
@@ -131,7 +134,8 @@
       }
       textarea, input {
         padding: 10px;
-        font-size: 0.9em;
+        font-size: 16px; /* Ensure font size remains 16px on mobile */
+        min-height: 48px; /* Ensure a touch-friendly size on smaller screens */
       }
     }
     /* Dark Mode Support */
@@ -159,17 +163,16 @@
         background-color: #333;
         color: #ddd;
       }
-      
       .notification {
         background-color: #444;
-      }    
-      .error {
-      background-color: #381010;
-      border-color: #ff4d4d;
-    }
+      }
       .icon-button {
         color: #fff;
       }
+      .error {
+      background-color: #aa000044;
+      border-color: #ff4d4d;
+    }
     }
   </style>
 </head>
