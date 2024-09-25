@@ -2,7 +2,11 @@
 
 This Docsify plugin allows you to encrypt and decrypt sections of your markdown content using a passphrase. Users can click a key icon to input a passphrase and decrypt all encrypted fields on the page. The encrypted content is protected using AES-256-GCM encryption, ensuring that only users with the correct passphrase can view the decrypted content.
 the passphase is
-```
+
+## Exemple
+
+
+```passphrase
 myPassphrase
 ```
 
@@ -13,13 +17,11 @@ KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4
 
 
 
-```ciphertext
-QKqpNLtiPDxzEeZFgP4Z34jiwWYQeUlumsrNXYCMfRZoZohQD07cy6WH0IDB2QsnBvko
-```
-
 ## Encoder / Decoder 
 
-[Example](./cipher.html ':include :type=iframe width=100% height=900px')
+[ciphertext](./cipher.html ':include :type=iframe width=100% height=900px')
+
+* [ciphertext encrypt/decrypt ](/cipher.html)
 
 
 ## Features
@@ -136,3 +138,77 @@ After entering the passphrase, users will be able to see the decrypted content, 
 
 - **Client-Side Encryption:** The encryption and decryption happen entirely on the client side. Ensure that your use case aligns with this approach.
 - **No Password Recovery:** If a user forgets the passphrase, there is no way to recover the encrypted content without knowing the correct key.
+
+
+## Tests 
+
+### Lorem ipsum
+
+```markdown
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum accumsan accumsan lectus vitae fermentum. Etiam dapibus ligula blandit, finibus neque et, feugiat nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris condimentum massa sit amet neque aliquam, ac commodo lorem euismod. Praesent tristique pellentesque venenatis. Cras libero ex, feugiat quis neque at, dictum sagittis ex. Phasellus id aliquet felis. Aenean porta erat ac accumsan efficitur. Donec quis vehicula lorem, at efficitur nibh. 
+```
+
+```ciphertext
+Gwb7NfJa2J8HLJ2UtVs7ft7xz0IzP1fBH1N27XCM4SJPzg1aGD/m8q9Cni+wkeUbJC3rqf5/s7i3QD6CrjVtlrY+mpK25Amx4Hw6a5J4djUlBf+ov6FB5QhFAdfPnj9WMD3MV25rO/9SLVIx7pf8IhDv6S2Vh+UWz6vgHx3z9b7yrwoi2hZZH4+cSVQv8JrBrcZV+MYl5xWGYA+mF575fNsxlcOR8BRwWzicHDDRIzWkP26v0MLgpKtwSqttn7v9Q/CWf8FEFcX2osV7keAozUrASqnoSwyKD7E3pyjlEQ5VEtKNr7PCRtlHDHCi0uAazwycrgtSJfzmtbKTmtHMXk+r8mKHoUkvK++soq2uJwfVajlOYhf1nHAIo5FsmQmlY7YFcg63oMbJCKA39/U5bcNJ+cZ0ztMEY3PWEs5obOYs4PrVPYQtylP/yNx+6bOmuG/V1W9idXsqByRBKZP7Rxa1ogrLcThU2yiS9R5TA5ubq1MpAK2+MV3tHieuRXsWltKsX3A4EOw8x52wWVNq3Bx6z7gnqNI74g4FYTnerbSI5UTLkcrynG0OTKKgzYSO54/f5S6HONChXVxwz0IJnfupw7pESYDVLDlklA2IiemjgKJCZNWihVOuS0g+HffbSRyDm60WJFjKjC8Xg2QMML12Nu48o7M1xl90nfvwTyi0mFNn9la3Ev3E+R0RM8tOfiDdOyfka4BrAbi5GBjlB1nnfYsG0uUt8xAxq4ILKvb5+ZpL
+```
+
+### ASCII
+
+```markdown
+Hello, this is an ASCII test.
+Characters: A-Z, a-z, 0-9
+Symbols: ! @ # $ % ^ & * ( ) _ + - = [ ] { } ; : ' " , . < > / ? | \ ~
+```
+
+```ciphertext
+u4V96t9L6mugvpliWleLa40kNqw2l4HzLlnCBKrP+9tMnIe/I5IIa70MzVCZihvnXwkhCrA1UXLrkts63J3ZWK//qcRibzXK3i+dpgfD1RlDMb3StNHT2IDufQ0hjwi4oXUTCsrvZe5RMVWJ7HLRowgQzblCbeI85Rnyh2Isrsc5yhWb7Yt9v5CWHlC/amIaFIoB2DH8ll8j1JuA246EsCEKfYL11rYM5/U=
+```
+
+### UTF-8
+
+```markdown
+This is a UTF-8 test.
+Accented characters: é, à, ö, ç, ñ, ü, ø, å
+Greek letters: α, β, γ, δ, ε, ζ, η, θ, λ, μ, π, σ, τ, φ, ω
+Currency symbols: €, ¥, £, ₹
+Math symbols: ∑, ∞, √, ∫, ≠, ≤, ≥
+```
+
+```ciphertext
+Gaua0/pwJBP8oJ2Csjd86AIVXHRc3Vn1Mn4rtcaepCJXe7HTZyGJnHEuQQuLEg/Othol4U7e+1OuQFHhZ17/WEfEJNiZRx5AJtV0pberkTN/lB8PLP/K/uo8MdJfShz3aUlMOSwZOr8GTTn3gTfNiLc7rJyiAILwMU/P7weztGFH1JBkphhae0bk8t9nJa3YIPtWlojI/jhn0iVcx5X9w5zATd1vZd4VxTUlzo6bTnwtq/g3QsD795AdWMQdNrAgQ0Tp0IZW/iWymoKn49ScLoQzbSvTjgwsHmyAgifML4Vw0vx6IdTR6D+Btsw/g/gxF1FYEonLQNUqDIKDRMCFxvZN7PShelFN6nWdb/Jl58tfTQ==
+```
+
+### Emoji
+
+
+```markdown
+This is an Emoji test.
+Faces: 😀 😁 😂 🤣 😍
+Animals: 🐶 🐱 🦊 🐻 🦁
+Nature: 🌳 🌻 🌞 🌈 🌊
+Objects: 🚗 ✈️ 🖥️ 📱 🎧
+
+```
+
+```ciphertext
+nnzLYcp6LTlZEM5glRsUdb7bHzzB3e1hoA8EkDk/UMClPnX/0DgmBmY2u/A8TAHZTsE035/yxqCs8omXqyAJfMVTlc1IjiN92mGVJq9XRyeRPTU/vSi8zYr+Mf5iuE/e2vzDsYYqpsS2ayKy/7sE5Sw3k7XTp/pa7JNZGA9ATJpZqq+5sjko1q2tX20r7baccVFHxEt0Q4CHZ4XJLITbSdhXy28zCc4pqGhelx9J8X2QkdizNVoQ/e2WFSpY/L8i9FLKyOCMhM6wiKf8
+```
+
+### JSON
+
+
+```markdown
+{
+  "name": "Alice",
+  "age": 30,
+  "email": "alice@example.com",
+  "interests": ["coding", "encryption", "reading"]
+}
+
+```
+
+```ciphertext
+/hSKMVdgtBLN++f7gnMyDJlO6koBh2Gvt5n20NNdViEtE0cVwiwcEkiW3+kfYezP8W2i1oqQZFJ5g8bABlIpl0cKcC29DcVAE0iyFz7yAFVKTF3D21qIDZjUQLeiWz10dIptGcuRmI4yJmt9+f5O6xSEQbyj070uVSTiwg5KjV1FSyQvLRnA2iLX2LCz37DAU+DGqfSQG+SBow0PC4BkK2aZ
+
+```
+

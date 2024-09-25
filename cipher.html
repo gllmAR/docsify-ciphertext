@@ -175,7 +175,7 @@
     <!-- Result Display Area -->
     <div class="field-container" style="position: relative;">
       <div class="field-header">
-        <label for="result">Result:</label>
+        <label for="result" id="resultLabel">Result (Plaintext):</label>
         <!-- Unified Emoji Button for Copy -->
         <button id="copyButton" class="icon-button" title="Copy to clipboard" aria-label="Copy to clipboard">📋⬅️</button>
       </div>
@@ -189,6 +189,7 @@
   <div id="notification" class="notification"></div>
 
   <script>
+    
     // Debounce Function to Limit Frequency of Function Calls
     function debounce(func, delay) {
       let timeout;
@@ -199,7 +200,7 @@
     }
 
     // Function to show notifications
-    function showNotification(message, duration = 3000) {
+    function showNotification(message, duration = 1000) {
       const notification = document.getElementById('notification');
       notification.textContent = message;
       notification.classList.add('show');
@@ -346,15 +347,18 @@
       const inputDataLabel = document.getElementById('inputDataLabel');
       const inputData = document.getElementById('inputData');
       const inputSuggestion = document.getElementById('inputSuggestion');
+      const resultLabel = document.getElementById('resultLabel');
 
       if (mode === 'encrypt') {
         inputDataLabel.textContent = 'Input Data (Plaintext):';
         inputData.placeholder = 'Enter text to encrypt';
         inputSuggestion.textContent = 'Please enter the text you want to encrypt.';
+        resultLabel.textContent = 'Result (Ciphertext):';
       } else if (mode === 'decrypt') {
         inputDataLabel.textContent = 'Input Data (Ciphertext):';
         inputData.placeholder = 'Enter ciphertext to decrypt';
         inputSuggestion.textContent = 'Please enter the ciphertext you want to decrypt.';
+        resultLabel.textContent = 'Result (Plaintext):';
       }
     }
 
@@ -445,7 +449,7 @@
     }
 
     // Debounced version of processData to prevent excessive calls
-    const debouncedProcessData = debounce(processData, 200); // Reduced delay to 200ms
+    const debouncedProcessData = debounce(processData, 100); // Reduced delay to 100ms
 
     // Function to handle mode toggling with bidirectional support
     async function handleModeToggle() {
@@ -468,7 +472,7 @@
         document.getElementById('passphrase').classList.remove('error');
         // Clear the result
         resultElement.textContent = '';
-        // Optionally, notify the user about the swap
+        // Notify the user about the swap
         showNotification(`Mode switched to ${newMode}. Input field updated with the last result.`);
       }
 
@@ -496,7 +500,11 @@
 
     // Event listeners for Input Data and Passphrase fields to trigger processing on input
     document.getElementById('inputData').addEventListener('input', debouncedProcessData);
-    document.getElementById('passphrase').addEventListener('input', debouncedProcessData);
+    document.getElementById('passphrase').addEventListener('input', (e) => {
+      // Store passphrase in sessionStorage to persist across window focus changes
+      sessionStorage.setItem('passphrase', e.target.value);
+      debouncedProcessData();
+    });
 
     // Paste button functionality
     document.getElementById('pasteButton').addEventListener('click', async () => {
@@ -547,8 +555,23 @@
       }
     });
 
+    // Function to restore passphrase from sessionStorage
+    function restorePassphrase() {
+      const storedPassphrase = sessionStorage.getItem('passphrase');
+      if (storedPassphrase) {
+        document.getElementById('passphrase').value = storedPassphrase;
+      }
+    }
+
+    // Restore passphrase when the window gains focus
+    window.addEventListener('focus', () => {
+      restorePassphrase();
+    });
+
     // Initial setup on page load
     window.addEventListener('load', () => {
+      // Restore passphrase if it exists in sessionStorage
+      restorePassphrase();
       validateInputs();
       updateInputFields('encrypt'); // Initialize input fields
       processData(); // Trigger initial processing if needed
