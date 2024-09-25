@@ -27,7 +27,7 @@
     <script src="decrypt-plugin.js"></script>
     <script>
         window.$docsify = {
-            name: 'Docsify ciphertext',
+            name: 'Docsify Ciphertext',
             repo: 'https://github.com/gllmAR/docsify-ciphertext',
     
             auto2top: true,
@@ -65,11 +65,14 @@
 
     <!-- Required -->
     <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
-
+    
     <!-- Import Mermaid -->
     <script type="module">
         import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
-        mermaid.initialize({ startOnLoad: true });
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: "neutral"
+        });
         window.mermaid = mermaid;
     </script>
     <script src="//unpkg.com/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
