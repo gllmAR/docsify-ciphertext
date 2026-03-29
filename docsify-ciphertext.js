@@ -185,7 +185,7 @@
       return (_cryptoReady = Promise.resolve());
     }
     _cryptoReady = _loadScript(
-      'https://cdn.jsdelivr.net/npm/asmcrypto.js/dist/asmcrypto.all.es5.min.js'
+      'https://cdn.jsdelivr.net/npm/asmcrypto.js/asmcrypto.all.es5.min.js'
     ).then(function () {
       return _loadScript(
         'https://cdn.jsdelivr.net/npm/webcrypto-liner/build/webcrypto-liner.shim.min.js'
