@@ -154,6 +154,51 @@
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // INSECURE-CONTEXT POLYFILL
+  //
+  // crypto.subtle is restricted to Secure Contexts (HTTPS / localhost) by spec.
+  // On plain HTTP we dynamically load the webcrypto-liner shim (backed by
+  // asmcrypto.js) which patches window.crypto.subtle with a pure-JS fallback.
+  // All existing crypto code runs unchanged after the shim is installed.
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  var _cryptoReady = null;
+
+  function _loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload  = resolve;
+      s.onerror = function () { reject(new Error('Failed to load ' + src)); };
+      document.head.appendChild(s);
+    });
+  }
+
+  /**
+   * Returns a Promise that resolves once crypto.subtle is guaranteed available.
+   * If already available (HTTPS / localhost) resolves immediately.
+   * Otherwise loads the asmcrypto.js + webcrypto-liner shim from jsDelivr.
+   */
+  function ensureCrypto() {
+    if (_cryptoReady) return _cryptoReady;
+    if (window.crypto && window.crypto.subtle) {
+      return (_cryptoReady = Promise.resolve());
+    }
+    _cryptoReady = _loadScript(
+      'https://cdn.jsdelivr.net/npm/asmcrypto.js/dist/asmcrypto.all.es5.min.js'
+    ).then(function () {
+      return _loadScript(
+        'https://cdn.jsdelivr.net/npm/webcrypto-liner/build/webcrypto-liner.shim.min.js'
+      );
+    }).then(function () {
+      if (!(window.crypto && window.crypto.subtle)) {
+        throw new Error('webcrypto-liner polyfill did not expose crypto.subtle.');
+      }
+    });
+    return _cryptoReady;
+  }
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // PASSPHRASE — two-layer cache
   //   Layer 1 (session):  sessionStorage — passphrase string, tab-scoped
   //   Layer 2 (persist):  localStorage   — derived AES key bytes per salt, TTL-bound
@@ -332,6 +377,17 @@
     '.cipher-submit:hover{filter:brightness(1.1);}',
     '.cipher-cancel:hover{',
     '  background:var(--mono-tint3,rgba(0,0,0,.05));}',
+    /* ── HTTP insecure-context warning banner ────────────────────────── */
+    '.cipher-http-warn{display:flex;align-items:flex-start;gap:10px;',
+    '  margin:0 0 1.4em;padding:11px 14px;border-radius:6px;',
+    '  background:rgba(234,128,20,.08);border:1px solid rgba(234,128,20,.4);',
+    '  font-size:.82em;line-height:1.55;color:var(--text-color,#333);}',
+    '.cipher-http-warn-icon{flex-shrink:0;font-size:1.1em;line-height:1.55;}',
+    '.cipher-http-warn strong{opacity:.9;}',
+    '.cipher-http-warn-close{margin-left:auto;flex-shrink:0;background:none;',
+    '  border:none;cursor:pointer;opacity:.4;font-size:1.1em;padding:0 3px;',
+    '  line-height:1;transition:opacity .15s;}',
+    '.cipher-http-warn-close:hover{opacity:.85;}',
   ].join('');
 
   function injectStyles() {
@@ -340,6 +396,39 @@
     s.id = CSS_ID;
     s.textContent = CSS;
     document.head.appendChild(s);
+  }
+
+  /**
+   * Show a one-time dismissible banner warning that the page is on HTTP.
+   * Decryption still works via the polyfill; the warning explains the
+   * trust model (local-only) and recommends HTTPS for best security.
+   * Inserts before the first cipher-block, or at the top of #main.
+   */
+  function showInsecureWarning() {
+    var WARN_ID = 'cipher-http-warn';
+    if (document.getElementById(WARN_ID)) return;
+    var el = document.createElement('div');
+    el.id = WARN_ID;
+    el.className = 'cipher-http-warn';
+    el.setAttribute('role', 'status');
+    el.innerHTML =
+      '<span class="cipher-http-warn-icon" aria-hidden="true">⚠️</span>' +
+      '<span><strong>HTTP page</strong> — decryption is still fully local ' +
+      '(your passphrase never leaves the browser), but a network attacker ' +
+      'could tamper with this page’s content. ' +
+      'For best security serve over <strong>HTTPS</strong>.</span>' +
+      '<button class="cipher-http-warn-close" type="button" ' +
+             'aria-label="Dismiss">×</button>';
+    el.querySelector('.cipher-http-warn-close').addEventListener('click', function () {
+      el.parentNode && el.parentNode.removeChild(el);
+    });
+    var anchor = document.querySelector('.cipher-block');
+    if (anchor && anchor.parentNode) {
+      anchor.parentNode.insertBefore(el, anchor);
+    } else {
+      var main = document.getElementById('main') || document.querySelector('.content') || document.body;
+      main.insertBefore(el, main.firstChild);
+    }
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -502,6 +591,16 @@
       if (icon) icon.textContent = '\u23F3';
       row.classList.add('cipher-row--busy');
 
+      // Ensure Web Crypto is available (loads polyfill on HTTP if needed)
+      try { await ensureCrypto(); } catch (e) {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+        if (icon) icon.textContent = '\u274C';
+        row.classList.remove('cipher-row--busy');
+        console.error('docsify-ciphertext: Web Crypto unavailable —', e.message);
+        return;
+      }
+
       // 1. Fast path: AES key cached in localStorage — no passphrase, no PBKDF2
       var plaintext = await decryptWithCachedKey(ct);
       if (plaintext) { showDecrypted(block, ct, plaintext); return; }
@@ -586,30 +685,34 @@
     hook.doneEach(function () {
       injectStyles();
 
+      var blocks = document.querySelectorAll('.cipher-block:not([data-wired])');
+      if (!blocks.length) return;
+
+      // Show HTTP warning if needed (non-blocking — decryption still works via polyfill)
+      if (window.isSecureContext === false || !(window.crypto && window.crypto.subtle)) {
+        showInsecureWarning();
+      }
+
       var passphrase = getPassphrase();
 
-      document.querySelectorAll('.cipher-block:not([data-wired])').forEach(function (block) {
+      blocks.forEach(function (block) {
         block.dataset.wired = '1';
         bindBlock(block);
 
         var ct = block.dataset.ct;
 
-        // Try cached key first (works across sessions within TTL)
-        decryptWithCachedKey(ct).then(function (plain) {
+        // Ensure crypto is ready (loads polyfill on HTTP), then auto-decrypt
+        ensureCrypto().then(function () {
+          // Try cached key first (works across sessions)
+          return decryptWithCachedKey(ct);
+        }).then(function (plain) {
           if (plain) { showDecrypted(block, ct, plain); return; }
           // Fallback: session passphrase (same tab, no cached key yet)
           if (passphrase) {
-            decryptCiphertext(ct, passphrase)
-              .then(function (p) { if (p) showDecrypted(block, ct, p); })
-              .catch(function () {});
+            return decryptCiphertext(ct, passphrase)
+              .then(function (p) { if (p) showDecrypted(block, ct, p); });
           }
-        }).catch(function () {
-          if (passphrase) {
-            decryptCiphertext(ct, passphrase)
-              .then(function (p) { if (p) showDecrypted(block, ct, p); })
-              .catch(function () {});
-          }
-        });
+        }).catch(function () {});
       });
     });
   }
