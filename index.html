@@ -9,79 +9,72 @@
     <meta name="description" content="Docsify Ciphertext">
     <title>Docsify Ciphertext</title>
 
-  
-    <link rel="stylesheet" href="https://gllmar.github.io/docsify-simple-style/docsify-simple-style.css">
-    <link rel="stylesheet" href="https://gllmar.github.io/docsify-lightbox/docsify-lightbox.css">
-    <!-- Custom Styles -->
+    <!-- Docsify 5 — core theme -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/themes/core.min.css">
+    <!-- Docsify 5 — dark mode add-on (activated only when OS is dark) -->
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/themes/addons/core-dark.min.css"
+        media="(prefers-color-scheme: dark)">
+
     <style>
         :root {
-            --theme-hue:0;
+            --theme-color: #1a73e8;
         }
     </style>
-
-
 </head>
 
 <body>
     <div id="app"></div>
-    <script src="decrypt-plugin.js"></script>
+
+    <!-- 1. Docsify configuration -->
     <script>
         window.$docsify = {
-            name: 'Docsify Ciphertext',
-            repo: 'https://github.com/gllmAR/docsify-ciphertext',
-    
-            auto2top: true,
-            loadSidebar: false,    // disable sidebar loading
-            subMaxLevel: 4,       // Adjust the level to include in TOC
+            name:        'Docsify Ciphertext',
+            repo:        'https://github.com/gllmAR/docsify-ciphertext',
+            auto2top:    true,
+            loadSidebar: false,
+            subMaxLevel: 4,
             copyCode: {
-                buttonText: '📄',
-                errorText: '⚠️',
+                buttonText:  '📄',
+                errorText:   '⚠️',
                 successText: '✅ ',
             },
             plugins: [
-            window.decryptContentPlugin,
-                // Lightbox plugin
-                function (hook, vm) {
-                    hook.doneEach(() => {
-                        import('https://gllmar.github.io/docsify-lightbox/docsify-lightbox.js').then(module => {
-                            const images = document.querySelectorAll('img');
-                            const lightbox = new module.default();
-                            lightbox.initialize(images);
-                        }).catch(err => console.error('Failed to load Lightbox plugin', err));
+                // Lightbox
+                function (hook) {
+                    hook.doneEach(function () {
+                        import('https://gllmar.github.io/docsify-lightbox-v5/docsify-lightbox.js')
+                            .then(function (m) {
+                                var lb = new m.default();
+                                lb.initialize(document.querySelectorAll('img'));
+                            })
+                            .catch(function (e) { console.error('Lightbox failed:', e); });
                     });
                 },
-                // WaveSurfer plugin
-                function (hook, vm) {
-                    hook.doneEach(() => {
-                        import('https://gllmar.github.io/docsify-wavesurfer-plugin/docsify-wavesurfer-plugin.js').then(module => {
-                            module.initWaveSurfer();
-                        }).catch(err => console.error('Failed to load WaveSurfer plugin', err));
-                    });
-                }
-            ]
+            ],
         };
     </script>
-    
 
-    <!-- Required -->
-    <script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
-    
-    <!-- Import Mermaid -->
+    <!-- 2. Single-line import — auto-registers, no plugins[] entry needed -->
+    <script src="docsify-ciphertext.js"></script>
+
+    <!-- 3. Docsify 5 core -->
+    <script src="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/docsify.min.js"></script>
+
+    <!-- Mermaid -->
     <script type="module">
         import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
-        mermaid.initialize({ 
-            startOnLoad: true,
-            theme: "neutral"
-        });
+        mermaid.initialize({ startOnLoad: true, theme: "neutral" });
         window.mermaid = mermaid;
     </script>
     <script src="//unpkg.com/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
+
+    <!-- Other plugins -->
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>
-    <script src="//cdn.jsdelivr.net/npm/docsify-sidebar-collapse/dist/docsify-sidebar-collapse.min.js"></script>
+    <script src="https://gllmar.github.io/docsify-repo-toolbar/docsify-repo-toolbar.js"></script>
     <script src="https://gllmar.github.io/docsify-unhashtaglink/docsify-unhashtaglink.js"></script>
     <script src="https://gllmar.github.io/docsify-alert/docsify-alerts.js"></script>
-    <script src="https://gllmar.github.io/docsify-repo-toolbar/docsify-repo-toolbar.js"></script>
-    
+
 </body>
 
 </html>

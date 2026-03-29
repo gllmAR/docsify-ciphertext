@@ -292,7 +292,7 @@
         {
           name: 'PBKDF2',
           salt: salt,
-          iterations: 100000,
+          iterations: 310000,
           hash: 'SHA-256',
         },
         keyMaterial,
@@ -330,56 +330,45 @@
       return arrayBufferToBase64(combinedData.buffer);
     }
 
-    // Decryption function
-    async function decryptData(encryptedDataBase64, passphrase) {
+    // Internal: decrypt with a specific PBKDF2 iteration count
+    async function _decryptWithIterations(encryptedDataBase64, passphrase, iterations) {
       const enc = new TextEncoder();
       const encryptedData = base64ToArrayBuffer(encryptedDataBase64);
       const encryptedBytes = new Uint8Array(encryptedData);
 
-      // Extract salt, iv, authTag, and ciphertext
-      const salt = encryptedBytes.slice(0, 16);
-      const iv = encryptedBytes.slice(16, 28);
-      const authTag = encryptedBytes.slice(28, 44);
+      const salt       = encryptedBytes.slice(0, 16);
+      const iv         = encryptedBytes.slice(16, 28);
+      const authTag    = encryptedBytes.slice(28, 44);
       const ciphertext = encryptedBytes.slice(44);
 
-      // Derive key using PBKDF2
       const keyMaterial = await window.crypto.subtle.importKey(
-        'raw',
-        enc.encode(passphrase),
-        { name: 'PBKDF2' },
-        false,
-        ['deriveKey']
+        'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
       );
-
       const key = await window.crypto.subtle.deriveKey(
-        {
-          name: 'PBKDF2',
-          salt: salt,
-          iterations: 100000,
-          hash: 'SHA-256',
-        },
+        { name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' },
         keyMaterial,
         { name: 'AES-GCM', length: 256 },
         false,
         ['decrypt']
       );
 
-      // Combine ciphertext and authTag for decryption
       const dataToDecrypt = new Uint8Array([...ciphertext, ...authTag]);
-
-      // Decrypt data
       const decrypted = await window.crypto.subtle.decrypt(
-        {
-          name: 'AES-GCM',
-          iv: iv,
-          tagLength: 128,
-        },
+        { name: 'AES-GCM', iv: iv, tagLength: 128 },
         key,
         dataToDecrypt.buffer
       );
+      return new TextDecoder().decode(decrypted);
+    }
 
-      const decoder = new TextDecoder();
-      return decoder.decode(decrypted);
+    // Decryption function — tries 310 000 iterations first, falls back to
+    // 100 000 for content encrypted with v1 of the plugin.
+    async function decryptData(encryptedDataBase64, passphrase) {
+      try {
+        return await _decryptWithIterations(encryptedDataBase64, passphrase, 310000);
+      } catch (_) {
+        return await _decryptWithIterations(encryptedDataBase64, passphrase, 100000);
+      }
     }
 
     // Function to update input labels and placeholders based on mode

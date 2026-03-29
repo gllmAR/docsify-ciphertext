@@ -1,197 +1,157 @@
 # docsify-ciphertext
 
-This Docsify plugin allows you to encrypt and decrypt sections of your markdown content using a passphrase. Users can click a key icon to input a passphrase and decrypt all encrypted fields on the page. The encrypted content is protected using AES-256-GCM encryption, ensuring that only users with the correct passphrase can view the decrypted content.
-the passphase is
+A [Docsify](https://docsify.js.org) plugin that lets you embed AES-256-GCM encrypted blocks in your markdown. Readers click **🔑 Decrypt** and enter a passphrase — everything happens locally in the browser, zero server involved.
 
-## Exemple
+## Quick start
 
-### The passphrase is:
-```passphrase
-myPassphrase
+### 1. Add the script to your `index.html`
+
+Place it **after** your `window.$docsify` config block and **before** `docsify.min.js`:
+
+```html
+<!-- your $docsify config -->
+<script>
+  window.$docsify = { name: 'My Docs', /* ... */ };
+</script>
+
+<!-- single-line import — auto-registers, no plugins array needed -->
+<script src="https://gllmar.github.io/docsify-ciphertext/docsify-ciphertext.js"></script>
+
+<!-- docsify core -->
+<script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
 ```
 
-### The encypted data (ciphertext)
-```ciphertext
-KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4ZfR1
-```
+That is the entire installation. No `plugins: [...]` entry required.
 
+### 2. Encrypt your content
 
-
-## Encoder / Decoder 
+Open [cipher.html](./cipher.html) (or use the iframe below) to encrypt text with a passphrase.
 
 [ciphertext](./cipher.html ':include :type=iframe width=100% height=800px')
 
-* [ciphertext encrypt/decrypt ](/cipher.html)
+* [Open full-page encryptor](./cipher.html)
 
+Or use the Node.js CLI:
 
-## Features
+```bash
+node crypto-cli.js -e -i "My secret text" -p "myPassphrase" -c
+```
 
-- **Encrypt and Decrypt Content:** Use this plugin to display encrypted content in your Docsify site. Content is hidden until the correct passphrase is entered.
-- **Lock/Unlock Toggle:** Once decrypted, users can toggle between the encrypted and decrypted content by clicking the lock/unlock icon.
-- **Persistent Passphrase:** The passphrase is stored in `localStorage`, so users don't need to re-enter it every time they navigate between pages.
-- **Multiple Fields:** Decrypt multiple fields on the same page with a single passphrase. If a field fails to decrypt, users can re-enter the correct key for that field.
-- **Customizable Icons:** The plugin uses intuitive key 🔑 and lock 🔒/unlock 🔓 icons for user interaction.
+### 3. Embed the ciphertext in your markdown
 
-## Algorithm
+The following is a **live working example**. Passphrase: `myPassphrase`.
+
+It decrypts to:
+> Hello from docsify-ciphertext! This text was encrypted with AES-256-GCM + PBKDF2-SHA256 (310 000 iterations).
+
+Markdown source:
+
+````markdown
+```ciphertext
+IphI5BWbzwgIl2rlqPCzkuDQWecWvsFgZWKFNHztLaY7QXEazEelRCGVXa3YD3Fh1Nlwwbe6kBXLXYbzqa0NSCgw1VQ0EVkzmM5vzuJf9eEtxuqVkyL9/0CE3v+KM8p5RW2HShnebsjaYyvMybxJ08xFIwpvEtRH47PKMKEunKxKYiQEm3CC6iQwuRqo7uoenHpjeHz+19gxx2r9FeA=
+```
+````
+
+Live block (click **🔑 Decrypt**, enter `myPassphrase`):
+
+```ciphertext
+IphI5BWbzwgIl2rlqPCzkuDQWecWvsFgZWKFNHztLaY7QXEazEelRCGVXa3YD3Fh1Nlwwbe6kBXLXYbzqa0NSCgw1VQ0EVkzmM5vzuJf9eEtxuqVkyL9/0CE3v+KM8p5RW2HShnebsjaYyvMybxJ08xFIwpvEtRH47PKMKEunKxKYiQEm3CC6iQwuRqo7uoenHpjeHz+19gxx2r9FeA=
+```
+
+---
+
+## How it works
 
 ```mermaid
 graph TD
-    A[Input Plain Text] --> B[Generate Salt, IV, AuthTag]
-    B --> C[Encrypt using AES-GCM with Derived Key]
-    C --> D[Encrypted Data + Salt, IV, AuthTag]
-    
-    D --> E[Convert Encrypted Data to ArrayBuffer]
+    A[Plaintext] --> B[Random Salt 16 B + IV 12 B]
+    B --> C[PBKDF2-SHA256 310k iter to AES-256 key]
+    C --> D[AES-256-GCM encrypt]
+    D --> E[salt . iv . authTag . ciphertext]
+    E --> F[Base64 paste into markdown]
 
-    subgraph "Decryption Process"
-        E --> F[ArrayBuffer Split]
-        F --> G1[Salt]
-        F --> G2[IV]
-        F --> G3[AuthTag]
-        F --> G4[Encrypted Data]
-        
-        G1 --> H[Import Passphrase with PBKDF2]
-        H --> I[Derive Key with Salt]
-        
-        G4 --> J[Decrypt using AES-GCM with Key, IV, and AuthTag]
-        J --> K[Decrypted Data]
+    subgraph Browser decrypt
+        F --> G[Base64 decode]
+        G --> H[Split salt . iv . authTag . ciphertext]
+        H --> I[PBKDF2-SHA256 re-derive key]
+        I --> J[AES-256-GCM decrypt + verify AuthTag]
+        J --> K[Plaintext rendered as markdown]
     end
-    
-    K --> L[Convert Decrypted Data to Plain Text]
-    L --> M[Output Plain Text]
-
 ```
 
-## Installation
+### Binary format
 
-1. **Include the Plugin Script:**
+| Offset | Length | Field |
+|--------|--------|-------|
+| 0 | 16 B | Random salt (PBKDF2 input) |
+| 16 | 12 B | IV (AES-GCM nonce) |
+| 28 | 16 B | GCM authentication tag |
+| 44 | N B | Ciphertext |
 
-   First, add the plugin JavaScript file to your Docsify site. Either download the script or link it directly in your `index.html` file.
+All fields concatenated and Base64-encoded.
 
-   ```html
-   <script src="decrypt-plugin.js"></script>
-   ```
+---
 
-2. **Initialize the Plugin:**
+## Features
 
-   After including the script, add the following configuration in your Docsify settings (usually in the `index.html`):
+| Feature | Detail |
+|---------|--------|
+| **AES-256-GCM** | Authenticated encryption — detects tampering |
+| **PBKDF2-SHA256** | 310 000 iterations (NIST SP 800-132 minimum for SHA-256) |
+| **Backward compatible** | Silently falls back to 100 000 iterations for v1 content |
+| **Session passphrase cache** | Stored in `sessionStorage` — cleared when the tab closes |
+| **Modal UI** | Replaces browser `prompt()` — keyboard accessible, dark-mode aware |
+| **Auto-decrypt** | All blocks on a page decrypt automatically when a passphrase is cached |
+| **Re-lock** | One click re-hides the plaintext |
+| **Rendered markdown** | Decrypted content is rendered through `marked` (same as Docsify) |
+| **Single-line import** | Auto-registers — no `plugins: []` entry needed |
 
-   ```html
-   <script>
-     window.$docsify = {
-       name: 'Docsify Ciphertext Decryption Plugin',
-       plugins: [
-         window.decryptContentPlugin,
-         // Other plugins...
-       ]
-     };
-   </script>
-   ```
+---
 
-3. **Encrypt Your Content:**
+## Security notes
 
-   To encrypt content, you can use a Node.js script that generates AES-256-GCM encrypted ciphertext from plaintext data (see [Usage](#usage) below). Insert the encrypted content into your markdown like this:
+- **Passphrase lives only in `sessionStorage`** — not `localStorage`. It is erased when the browser tab or window is closed.
+- **PBKDF2 at 310 000 iterations** makes offline brute-force expensive; the only server-free counter-measure that scales is a strong, random passphrase.
+- **The AuthTag is always verified** by the Web Crypto API before any plaintext is released.
+- **Generic error messages** — "decryption failed" never reveals whether the passphrase or the data was wrong.
+- For higher-assurance use cases see [improvesecurity/README.md](./improvesecurity/).
 
-   ```markdown
-   ```ciphertext
-   KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4ZfR1
-   ```
-   ```
+---
 
-## Usage
+## CLI usage
 
-1. **Encrypting Content (Node.js):**
+```bash
+# encrypt
+node crypto-cli.js -e -i "secret text" -p "passphrase" -c
 
-   You can encrypt content using the following Node.js script to produce AES-256-GCM ciphertext:
+# decrypt
+node crypto-cli.js -d -i "<base64 ciphertext>" -p "passphrase"
+```
 
-   ```javascript
-   const crypto = require('crypto');
-
-   function encrypt(data, passphrase) {
-     const salt = crypto.randomBytes(16);
-     const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
-     const iv = crypto.randomBytes(12);
-     const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
-     const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()]);
-     const authTag = cipher.getAuthTag();
-     return Buffer.concat([salt, iv, authTag, encrypted]).toString('base64');
-   }
-
-   const passphrase = 'myPassphrase';
-   const data = 'https://example.com';
-
-   console.log(encrypt(data, passphrase));
-   ```
-
-   Use this script to encrypt your content and include the ciphertext in your markdown files.
-
-2. **Decryption Flow:**
-
-   - **🔑 Key Icon:** Clicking this icon prompts the user to input the passphrase. The key is stored in `localStorage` and used to decrypt any encrypted fields on the page.
-   - **🔒 Lock Icon:** Clicking this icon decrypts the content if the correct key has been entered. It then changes to an unlock icon.
-   - **🔓 Unlock Icon:** Clicking this icon reverts the content back to its encrypted state.
-
-3. **Toggling Content:**
-
-   Users can toggle between the encrypted and decrypted versions of the content by interacting with the lock and unlock icons. All encrypted content is protected by AES-256-GCM encryption.
+---
 
 ## API
 
-The plugin adds two user interaction icons:
-
-- **🔑 Key Icon:** Prompts the user to enter a passphrase. The passphrase is stored in `localStorage` for convenience.
-- **🔒/🔓 Lock/Unlock Icon:** Used to toggle between the encrypted and decrypted content.
-
-## Example
-
-Here’s an example of how encrypted content would look in your markdown:
-
-```markdown
-# My Secret Links
-
-Here are my secret links. Decrypt them using the 🔑 key icon. Remove the backslash "\" to make it work
-
-\```ciphertext
-KLLKb4dGZep+Clqf5OsUqPo1LDy48g+Jn8idWEmre4ThlQwgjdYnHufB4FIDXyZ70Dsnbp5VbhuHbto4ZfR1
-\```
-
+```js
+// Remove the cached passphrase (e.g. for a "lock all" button)
+window.DocsifyCiphertext.clearPassphrase();
 ```
 
-After entering the passphrase, users will be able to see the decrypted content, which may look like a URL, text, or any other data you encrypted.
+---
 
-## Security
+## Test strings
 
-- **AES-256-GCM Encryption:** The plugin uses strong AES-256-GCM encryption, which provides confidentiality and integrity verification through authentication tags. Only users with the correct passphrase can decrypt the content.
-- **Passphrase Management:** The passphrase is stored in `localStorage`, so the user doesn't need to re-enter it as they navigate between pages. You can clear the passphrase using the `clearPassphrase` function if needed.
+Passphrase for all examples below: **`myPassphrase`**
 
+### Rendered markdown
 
+Decrypted content is rendered through `marked` — headings, bold, lists, and blockquotes all work:
 
-### Current Good Practices:
-1. **AES-GCM Mode**: AES-GCM (Galois/Counter Mode) is a secure and modern encryption method that provides both confidentiality and integrity by including an authentication tag (AuthTag). This is excellent for preventing tampering and ensuring the data hasn't been modified.
-
-2. **PBKDF2 for Key Derivation**: Using PBKDF2 (Password-Based Key Derivation Function 2) to derive the encryption key from the passphrase with a salt is a good practice. PBKDF2 adds computational work to slow down brute-force attacks on passwords.
-
-3. **Salt for Key Derivation**: Including a salt ensures that even if two people use the same password, the derived keys will be different. This prevents precomputed attacks like rainbow table attacks.
-
-### Security Recommendations:
-
-The encryption and decryption algorithm uses standard cryptographic practices, but there are several improvements and best practices to ensure it remains secure.
-
-see [Improving security TODO](/improvesecurity/)
-
-
-## Limitations
-
-- **Client-Side Encryption:** The encryption and decryption happen entirely on the client side. Ensure that your use case aligns with this approach.
-- **No Password Recovery:** If a user forgets the passphrase, there is no way to recover the encrypted content without knowing the correct key.
-
-
-## Tests strings
+```ciphertext
+fuM35MMTveaCHPBTsG8Uy55j1w2PqZrSD1+9J1yncqR1yYO+yiSnZTlqbpwL5Sbd96d9kaH3CdwjnqZhHevZep9xNm8bTtyWMRKQmLcmEW8Ev3hvF/00qBZ1rk6ZWarrhYHldhHYhnfSkI7caJ7MCEnkT/WcPOME65HkduRi8doGEUfMexd8TRPjHVJs9VhhfTBCva5GZWRIInQnQG+uRa+E2SVOxS1rUloWo0qyJ1ym5wUBBPsZK55nepXIW1bd8zIftyu/Cj/f5205AfdGsBiDeyARrJQ4YlG4HfU81t4r3cWTziWdqrjIdLfX63vZCBV+rnuby+d4QWFS/XDvX+kJlgU1Nk9+GZ+HtHY=
+```
 
 ### Lorem ipsum
-
-```markdown
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Vestibulum accumsan accumsan lectus vitae fermentum. Etiam dapibus ligula blandit, finibus neque et, feugiat nisi. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris condimentum massa sit amet neque aliquam, ac commodo lorem euismod. Praesent tristique pellentesque venenatis. Cras libero ex, feugiat quis neque at, dictum sagittis ex. Phasellus id aliquet felis. Aenean porta erat ac accumsan efficitur. Donec quis vehicula lorem, at efficitur nibh. 
-```
 
 ```ciphertext
 Gwb7NfJa2J8HLJ2UtVs7ft7xz0IzP1fBH1N27XCM4SJPzg1aGD/m8q9Cni+wkeUbJC3rqf5/s7i3QD6CrjVtlrY+mpK25Amx4Hw6a5J4djUlBf+ov6FB5QhFAdfPnj9WMD3MV25rO/9SLVIx7pf8IhDv6S2Vh+UWz6vgHx3z9b7yrwoi2hZZH4+cSVQv8JrBrcZV+MYl5xWGYA+mF575fNsxlcOR8BRwWzicHDDRIzWkP26v0MLgpKtwSqttn7v9Q/CWf8FEFcX2osV7keAozUrASqnoSwyKD7E3pyjlEQ5VEtKNr7PCRtlHDHCi0uAazwycrgtSJfzmtbKTmtHMXk+r8mKHoUkvK++soq2uJwfVajlOYhf1nHAIo5FsmQmlY7YFcg63oMbJCKA39/U5bcNJ+cZ0ztMEY3PWEs5obOYs4PrVPYQtylP/yNx+6bOmuG/V1W9idXsqByRBKZP7Rxa1ogrLcThU2yiS9R5TA5ubq1MpAK2+MV3tHieuRXsWltKsX3A4EOw8x52wWVNq3Bx6z7gnqNI74g4FYTnerbSI5UTLkcrynG0OTKKgzYSO54/f5S6HONChXVxwz0IJnfupw7pESYDVLDlklA2IiemjgKJCZNWihVOuS0g+HffbSRyDm60WJFjKjC8Xg2QMML12Nu48o7M1xl90nfvwTyi0mFNn9la3Ev3E+R0RM8tOfiDdOyfka4BrAbi5GBjlB1nnfYsG0uUt8xAxq4ILKvb5+ZpL
@@ -199,25 +159,11 @@ Gwb7NfJa2J8HLJ2UtVs7ft7xz0IzP1fBH1N27XCM4SJPzg1aGD/m8q9Cni+wkeUbJC3rqf5/s7i3QD6C
 
 ### ASCII
 
-```markdown
-Hello, this is an ASCII test.
-Characters: A-Z, a-z, 0-9
-Symbols: ! @ # $ % ^ & * ( ) _ + - = [ ] { } ; : ' " , . < > / ? | \ ~
-```
-
 ```ciphertext
 u4V96t9L6mugvpliWleLa40kNqw2l4HzLlnCBKrP+9tMnIe/I5IIa70MzVCZihvnXwkhCrA1UXLrkts63J3ZWK//qcRibzXK3i+dpgfD1RlDMb3StNHT2IDufQ0hjwi4oXUTCsrvZe5RMVWJ7HLRowgQzblCbeI85Rnyh2Isrsc5yhWb7Yt9v5CWHlC/amIaFIoB2DH8ll8j1JuA246EsCEKfYL11rYM5/U=
 ```
 
 ### UTF-8
-
-```markdown
-This is a UTF-8 test.
-Accented characters: é, à, ö, ç, ñ, ü, ø, å
-Greek letters: α, β, γ, δ, ε, ζ, η, θ, λ, μ, π, σ, τ, φ, ω
-Currency symbols: €, ¥, £, ₹
-Math symbols: ∑, ∞, √, ∫, ≠, ≤, ≥
-```
 
 ```ciphertext
 Gaua0/pwJBP8oJ2Csjd86AIVXHRc3Vn1Mn4rtcaepCJXe7HTZyGJnHEuQQuLEg/Othol4U7e+1OuQFHhZ17/WEfEJNiZRx5AJtV0pberkTN/lB8PLP/K/uo8MdJfShz3aUlMOSwZOr8GTTn3gTfNiLc7rJyiAILwMU/P7weztGFH1JBkphhae0bk8t9nJa3YIPtWlojI/jhn0iVcx5X9w5zATd1vZd4VxTUlzo6bTnwtq/g3QsD795AdWMQdNrAgQ0Tp0IZW/iWymoKn49ScLoQzbSvTjgwsHmyAgifML4Vw0vx6IdTR6D+Btsw/g/gxF1FYEonLQNUqDIKDRMCFxvZN7PShelFN6nWdb/Jl58tfTQ==
@@ -225,35 +171,20 @@ Gaua0/pwJBP8oJ2Csjd86AIVXHRc3Vn1Mn4rtcaepCJXe7HTZyGJnHEuQQuLEg/Othol4U7e+1OuQFHh
 
 ### Emoji
 
-
-```markdown
-This is an Emoji test.
-Faces: 😀 😁 😂 🤣 😍
-Animals: 🐶 🐱 🦊 🐻 🦁
-Nature: 🌳 🌻 🌞 🌈 🌊
-Objects: 🚗 ✈️ 🖥️ 📱 🎧
-
-```
-
 ```ciphertext
 nnzLYcp6LTlZEM5glRsUdb7bHzzB3e1hoA8EkDk/UMClPnX/0DgmBmY2u/A8TAHZTsE035/yxqCs8omXqyAJfMVTlc1IjiN92mGVJq9XRyeRPTU/vSi8zYr+Mf5iuE/e2vzDsYYqpsS2ayKy/7sE5Sw3k7XTp/pa7JNZGA9ATJpZqq+5sjko1q2tX20r7baccVFHxEt0Q4CHZ4XJLITbSdhXy28zCc4pqGhelx9J8X2QkdizNVoQ/e2WFSpY/L8i9FLKyOCMhM6wiKf8
 ```
 
 ### JSON
 
-
-```markdown
-{
-  "name": "Alice",
-  "age": 30,
-  "email": "alice@example.com",
-  "interests": ["coding", "encryption", "reading"]
-}
-
-```
-
 ```ciphertext
 /hSKMVdgtBLN++f7gnMyDJlO6koBh2Gvt5n20NNdViEtE0cVwiwcEkiW3+kfYezP8W2i1oqQZFJ5g8bABlIpl0cKcC29DcVAE0iyFz7yAFVKTF3D21qIDZjUQLeiWz10dIptGcuRmI4yJmt9+f5O6xSEQbyj070uVSTiwg5KjV1FSyQvLRnA2iLX2LCz37DAU+DGqfSQG+SBow0PC4BkK2aZ
-
 ```
 
+---
+
+## Limitations
+
+- **Client-side only** — the passphrase and decryption never leave the browser.
+- **No key recovery** — if the passphrase is lost, the content cannot be recovered.
+- **Security depends on passphrase strength** — use a long, random passphrase.

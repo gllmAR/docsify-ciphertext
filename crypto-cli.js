@@ -21,11 +21,14 @@ function displayHelp() {
     console.log('  node crypto-cli.js -d -i "<ciphertext>" -p "myPassphrase" -c');
 }
 
+const ITER_CURRENT = 310000; // NIST SP 800-132 (2023) recommended minimum
+const ITER_LEGACY  = 100000; // v1 backward-compat
+
 // Function to encrypt data
 function encrypt(url, passphrase) {
     // Derive a key from the passphrase
     const salt = crypto.randomBytes(16);
-    const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
+    const key = crypto.pbkdf2Sync(passphrase, salt, ITER_CURRENT, 32, 'sha256');
 
     // Encrypt the URL
     const iv = crypto.randomBytes(12); // AES-GCM requires a 12-byte IV
@@ -46,31 +49,36 @@ function encrypt(url, passphrase) {
     return encryptedData;
 }
 
+// Internal: decrypt with a specific PBKDF2 iteration count
+function _decryptWithIterations(encryptedDataBase64, passphrase, iterations) {
+    const encryptedData = Buffer.from(encryptedDataBase64, 'base64');
+
+    const salt             = encryptedData.slice(0, 16);
+    const iv               = encryptedData.slice(16, 28);
+    const authTag          = encryptedData.slice(28, 44);
+    const encryptedContent = encryptedData.slice(44);
+
+    const key = crypto.pbkdf2Sync(passphrase, salt, iterations, 32, 'sha256');
+
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+
+    let decrypted = decipher.update(encryptedContent, undefined, 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+}
+
 // Function to decrypt data
+// Tries 310 000 iterations first; falls back to 100 000 for v1 content.
 function decrypt(encryptedDataBase64, passphrase) {
     try {
-        const encryptedData = Buffer.from(encryptedDataBase64, 'base64');
-
-        // Extract salt, iv, authTag, and encrypted content
-        const salt = encryptedData.slice(0, 16);
-        const iv = encryptedData.slice(16, 28);
-        const authTag = encryptedData.slice(28, 44);
-        const encryptedContent = encryptedData.slice(44);
-
-        // Derive the key using PBKDF2
-        const key = crypto.pbkdf2Sync(passphrase, salt, 100000, 32, 'sha256');
-
-        // Decrypt the data
-        const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
-        decipher.setAuthTag(authTag);
-
-        let decrypted = decipher.update(encryptedContent, undefined, 'utf8');
-        decrypted += decipher.final('utf8');
-
-        return decrypted;
-    } catch (err) {
-        // Decryption failed
-        return null;
+        return _decryptWithIterations(encryptedDataBase64, passphrase, ITER_CURRENT);
+    } catch (_) {
+        try {
+            return _decryptWithIterations(encryptedDataBase64, passphrase, ITER_LEGACY);
+        } catch (err) {
+            return null;
+        }
     }
 }
 
