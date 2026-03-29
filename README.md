@@ -1,6 +1,6 @@
 # docsify-ciphertext
 
-A [Docsify](https://docsify.js.org) plugin that lets you embed AES-256-GCM encrypted blocks in your markdown. Readers click **🔑 Decrypt** and enter a passphrase — everything happens locally in the browser, zero server involved.
+A [Docsify](https://docsify.js.org) plugin that lets you embed AES-256-GCM encrypted blocks in your markdown. Readers click **Unlock** and enter a passphrase — everything happens locally in the browser, zero server involved. Works on HTTPS and HTTP alike.
 
 ## Quick start
 
@@ -18,7 +18,7 @@ Place it **after** your `window.$docsify` config block and **before** `docsify.m
 <script src="https://gllmar.github.io/docsify-ciphertext/docsify-ciphertext.js"></script>
 
 <!-- docsify core -->
-<script src="https://cdn.jsdelivr.net/npm/docsify@4/lib/docsify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/docsify.min.js"></script>
 ```
 
 That is the entire installation. No `plugins: [...]` entry required.
@@ -52,7 +52,7 @@ IphI5BWbzwgIl2rlqPCzkuDQWecWvsFgZWKFNHztLaY7QXEazEelRCGVXa3YD3Fh1Nlwwbe6kBXLXYbz
 ```
 ````
 
-Live block (click **🔑 Decrypt**, enter `myPassphrase`):
+Live block (click **Unlock**, enter `myPassphrase`):
 
 ```ciphertext
 IphI5BWbzwgIl2rlqPCzkuDQWecWvsFgZWKFNHztLaY7QXEazEelRCGVXa3YD3Fh1Nlwwbe6kBXLXYbzqa0NSCgw1VQ0EVkzmM5vzuJf9eEtxuqVkyL9/0CE3v+KM8p5RW2HShnebsjaYyvMybxJ08xFIwpvEtRH47PKMKEunKxKYiQEm3CC6iQwuRqo7uoenHpjeHz+19gxx2r9FeA=
@@ -101,19 +101,21 @@ All fields concatenated and Base64-encoded.
 | **Backward compatible** | Silently falls back to 100 000 iterations for v1 content |
 | **Two-layer passphrase cache** | Session: `sessionStorage` (tab-scoped). Persist: derived AES key in `localStorage` — permanent by default, optional TTL |
 | **Modal UI** | Replaces browser `prompt()` — keyboard accessible, dark-mode aware |
-| **Auto-decrypt** | All blocks on a page decrypt automatically when a passphrase is cached |
+| **Auto-decrypt** | All blocks on a page decrypt automatically when a passphrase or key is cached |
 | **Re-lock** | One click re-hides the plaintext |
 | **Rendered markdown** | Decrypted content is rendered through `marked` (same as Docsify) |
 | **Single-line import** | Auto-registers — no `plugins: []` entry needed |
+| **HTTP support** | Works on plain HTTP via a transparent `webcrypto-liner` + `asmcrypto.js` polyfill — loaded only when needed |
 
 ---
 
 ## Security notes
 
-- **Two-layer passphrase cache** — the passphrase string lives only in `sessionStorage` (cleared on tab close). Separately, the derived 32-byte AES key is cached in `localStorage` with a configurable TTL (default 8 hours). On revisit within the TTL the key is loaded directly — PBKDF2 is skipped entirely and no passphrase is needed. An attacker reading `localStorage` gets raw key bytes but **cannot reverse-engineer the passphrase** (PBKDF2 is one-way), so reuse of the passphrase elsewhere is not exposed. By default the key never expires — once unlocked, a block auto-decrypts forever without asking again. Set a finite TTL via `window.$docsify.ciphertext = { keyTTL: 8 * 3600 * 1000 }` (ms). Call `DocsifyCiphertext.clearPassphrase()` to evict both layers immediately.
+- **Two-layer passphrase cache** — the passphrase string lives only in `sessionStorage` (cleared on tab close). Separately, the derived 32-byte AES key is cached in `localStorage` with no expiry by default — once a block is unlocked it auto-decrypts on every future visit without prompting. An attacker reading `localStorage` gets raw key bytes but **cannot reverse-engineer the passphrase** (PBKDF2 is one-way), so reuse of the passphrase elsewhere is not exposed. Set a finite TTL via `window.$docsify.ciphertext = { keyTTL: 8 * 3600 * 1000 }` (ms, `0` = session only). Call `DocsifyCiphertext.clearPassphrase()` to evict both layers immediately.
 - **PBKDF2 at 310 000 iterations** makes offline brute-force expensive; the only server-free counter-measure that scales is a strong, random passphrase.
 - **The AuthTag is always verified** by the Web Crypto API before any plaintext is released.
 - **Generic error messages** — "decryption failed" never reveals whether the passphrase or the data was wrong.
+- **HTTP / insecure-context support** — on plain HTTP pages `crypto.subtle` is unavailable by browser spec. The plugin automatically loads a pure-JS polyfill (`webcrypto-liner` + `asmcrypto.js`) from jsDelivr and shows a dismissible amber banner explaining the trust model. Decryption is still 100 % local in the browser; the banner simply advises HTTPS for best protection against page-level tampering.
 - For higher-assurance use cases see [improvesecurity/README.md](./improvesecurity/).
 
 ---
@@ -133,8 +135,25 @@ node crypto-cli.js -d -i "<base64 ciphertext>" -p "passphrase"
 ## API
 
 ```js
-// Remove the cached passphrase (e.g. for a "lock all" button)
+// Remove the cached passphrase AND the localStorage key cache (lock everything)
 window.DocsifyCiphertext.clearPassphrase();
+```
+
+### Configuration
+
+A `$docsify.ciphertext` object can be added to your `window.$docsify` config:
+
+```js
+window.$docsify = {
+  name: 'My Docs',
+  ciphertext: {
+    // How long the derived AES key stays in localStorage (milliseconds).
+    // Infinity  — never expires (default — unlock once, always auto-decrypts)
+    // 0         — session only (equivalent to sessionStorage, no localStorage)
+    // 8*3600e3  — 8 hours
+    keyTTL: Infinity,
+  },
+};
 ```
 
 ---
