@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0a192f"/>
+      <stop offset="100%" stop-color="#0d2137"/>
+    </linearGradient>
+    <linearGradient id="shackleGrad" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1a73e8"/>
+      <stop offset="100%" stop-color="#38bdf8"/>
+    </linearGradient>
+    <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e88e5"/>
+      <stop offset="100%" stop-color="#1453a8"/>
+    </linearGradient>
+    <linearGradient id="lineLeft" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#38bdf8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="lineRight" x1="1" y1="0" x2="0" y2="0">
+      <stop offset="0%" stop-color="#1a73e8" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#1a73e8" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded square background -->
+  <rect width="512" height="512" rx="88" fill="url(#bg)"/>
+
+  <!-- Top-left: fading cipher text lines (left-anchored, fade right) -->
+  <g opacity="0.20">
+    <rect x="52" y="88"  width="148" height="9" rx="4.5" fill="url(#lineLeft)"/>
+    <rect x="52" y="113" width="104" height="9" rx="4.5" fill="url(#lineLeft)"/>
+    <rect x="52" y="138" width="132" height="9" rx="4.5" fill="url(#lineLeft)"/>
+    <rect x="52" y="163" width="80"  height="9" rx="4.5" fill="url(#lineLeft)"/>
+    <rect x="52" y="188" width="116" height="9" rx="4.5" fill="url(#lineLeft)"/>
+  </g>
+
+  <!-- Bottom-right: fading cipher text lines (right-anchored, fade left) -->
+  <g opacity="0.22">
+    <rect x="312" y="324" width="148" height="9" rx="4.5" fill="url(#lineRight)"/>
+    <rect x="356" y="349" width="104" height="9" rx="4.5" fill="url(#lineRight)"/>
+    <rect x="328" y="374" width="132" height="9" rx="4.5" fill="url(#lineRight)"/>
+    <rect x="372" y="399" width="88"  height="9" rx="4.5" fill="url(#lineRight)"/>
+    <rect x="340" y="424" width="120" height="9" rx="4.5" fill="url(#lineRight)"/>
+  </g>
+
+  <!-- Lock shackle — the arch above the body -->
+  <path d="M 191 276 L 191 212 A 65 65 0 0 1 321 212 L 321 276"
+        fill="none"
+        stroke="url(#shackleGrad)"
+        stroke-width="40"
+        stroke-linecap="round"
+        stroke-linejoin="round"/>
+
+  <!-- Lock body -->
+  <rect x="150" y="268" width="212" height="172" rx="26" fill="url(#bodyGrad)"/>
+
+  <!-- Lock body top-edge highlight (inner glow) -->
+  <rect x="150" y="268" width="212" height="58" rx="26" fill="rgba(255,255,255,0.07)"/>
+
+  <!-- Keyhole — circle -->
+  <circle cx="256" cy="334" r="29" fill="rgba(0,0,0,0.32)"/>
+
+  <!-- Keyhole — stem -->
+  <rect x="246" y="346" width="20" height="28" rx="8" fill="rgba(0,0,0,0.30)"/>
+</svg>
