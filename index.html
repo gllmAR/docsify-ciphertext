@@ -16,6 +16,8 @@
         href="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/themes/addons/core-dark.min.css"
         media="(prefers-color-scheme: dark)">
 
+    <link rel="stylesheet" href="https://gllmar.github.io/docsify-lightbox-v5/docsify-lightbox.css">
+
     <style>
         :root {
             --theme-color: #1a73e8;
@@ -39,19 +41,6 @@
                 errorText:   '⚠️',
                 successText: '✅ ',
             },
-            plugins: [
-                // Lightbox
-                function (hook) {
-                    hook.doneEach(function () {
-                        import('https://gllmar.github.io/docsify-lightbox-v5/docsify-lightbox.js')
-                            .then(function (m) {
-                                var lb = new m.default();
-                                lb.initialize(document.querySelectorAll('img'));
-                            })
-                            .catch(function (e) { console.error('Lightbox failed:', e); });
-                    });
-                },
-            ],
         };
     </script>
 
@@ -61,6 +50,13 @@
     <!-- 3. Docsify 5 core -->
     <script src="https://cdn.jsdelivr.net/npm/docsify@^5.0.0-rc/dist/docsify.min.js"></script>
 
+    <!-- Prism language components (markup must precede markdown) -->
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markup.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-bash.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-json.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/prismjs@1/components/prism-javascript.min.js"></script>
+
     <!-- Mermaid -->
     <script type="module">
         import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
@@ -68,6 +64,9 @@
         window.mermaid = mermaid;
     </script>
     <script src="//unpkg.com/docsify-mermaid@2.0.1/dist/docsify-mermaid.js"></script>
+
+    <!-- Lightbox v5 — regular script, auto-registers as Docsify plugin -->
+    <script src="https://gllmar.github.io/docsify-lightbox-v5/docsify-lightbox.js"></script>
 
     <!-- Other plugins -->
     <script src="//cdn.jsdelivr.net/npm/docsify-copy-code/dist/docsify-copy-code.min.js"></script>

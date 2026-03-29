@@ -99,7 +99,7 @@ All fields concatenated and Base64-encoded.
 | **AES-256-GCM** | Authenticated encryption — detects tampering |
 | **PBKDF2-SHA256** | 310 000 iterations (NIST SP 800-132 minimum for SHA-256) |
 | **Backward compatible** | Silently falls back to 100 000 iterations for v1 content |
-| **Session passphrase cache** | Stored in `sessionStorage` — cleared when the tab closes |
+| **Two-layer passphrase cache** | Session: `sessionStorage` (tab-scoped). Persist: derived AES key in `localStorage` — permanent by default, optional TTL |
 | **Modal UI** | Replaces browser `prompt()` — keyboard accessible, dark-mode aware |
 | **Auto-decrypt** | All blocks on a page decrypt automatically when a passphrase is cached |
 | **Re-lock** | One click re-hides the plaintext |
@@ -110,7 +110,7 @@ All fields concatenated and Base64-encoded.
 
 ## Security notes
 
-- **Passphrase lives only in `sessionStorage`** — not `localStorage`. It is erased when the browser tab or window is closed.
+- **Two-layer passphrase cache** — the passphrase string lives only in `sessionStorage` (cleared on tab close). Separately, the derived 32-byte AES key is cached in `localStorage` with a configurable TTL (default 8 hours). On revisit within the TTL the key is loaded directly — PBKDF2 is skipped entirely and no passphrase is needed. An attacker reading `localStorage` gets raw key bytes but **cannot reverse-engineer the passphrase** (PBKDF2 is one-way), so reuse of the passphrase elsewhere is not exposed. By default the key never expires — once unlocked, a block auto-decrypts forever without asking again. Set a finite TTL via `window.$docsify.ciphertext = { keyTTL: 8 * 3600 * 1000 }` (ms). Call `DocsifyCiphertext.clearPassphrase()` to evict both layers immediately.
 - **PBKDF2 at 310 000 iterations** makes offline brute-force expensive; the only server-free counter-measure that scales is a strong, random passphrase.
 - **The AuthTag is always verified** by the Web Crypto API before any plaintext is released.
 - **Generic error messages** — "decryption failed" never reveals whether the passphrase or the data was wrong.

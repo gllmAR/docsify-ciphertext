@@ -1,5 +1,5 @@
 /**
- * docsify-ciphertext.js — v3.0
+ * docsify-ciphertext.js — v3.1
  *
  * Docsify 4 + 5 plugin — AES-256-GCM encrypted content blocks.
  * Single <script> tag installation — auto-registers with Docsify.
@@ -26,7 +26,9 @@
 
   var ITER_CURRENT = 310000; // NIST SP 800-132 (2023) recommended minimum
   var ITER_LEGACY  = 100000; // v1 backward-compat fallback
-  var SESSION_KEY  = 'docsify-ciphertext:passphrase';
+  var SESSION_KEY  = 'docsify-ciphertext:passphrase'; // sessionStorage — cleared on tab close
+  var PERSIST_KEY  = 'docsify-ciphertext:keycache';   // localStorage  — AES key bytes, TTL-bound
+  var KEY_TTL_MS   = Infinity;                         // never expires by default (override via $docsify.ciphertext.keyTTL)
   var CSS_ID       = 'docsify-ciphertext-css';
 
   // Regex for markdown syntax indicators (headings, lists, blockquotes, bold,
@@ -90,13 +92,170 @@
     }
   }
 
+  /**
+   * Like _decryptWithIterations but derives the AES key with extractable=true,
+   * allowing the caller to export and cache it.  Returns { plaintext, key }.
+   */
+  async function _decryptExtractable(ciphertextB64, passphrase, iterations) {
+    var buf     = b64ToBuffer(ciphertextB64);
+    var salt    = buf.slice(0, 16);
+    var iv      = buf.slice(16, 28);
+    var authTag = buf.slice(28, 44);
+    var data    = buf.slice(44);
+
+    var enc = new TextEncoder();
+    var km = await crypto.subtle.importKey(
+      'raw', enc.encode(passphrase), { name: 'PBKDF2' }, false, ['deriveKey']
+    );
+    var key = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: salt, iterations: iterations, hash: 'SHA-256' },
+      km,
+      { name: 'AES-GCM', length: 256 },
+      true,        // extractable — required for key export/caching
+      ['decrypt']
+    );
+
+    var payload = new Uint8Array(data.byteLength + authTag.byteLength);
+    payload.set(new Uint8Array(data));
+    payload.set(new Uint8Array(authTag), data.byteLength);
+
+    var result = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: iv, tagLength: 128 },
+      key, payload.buffer
+    );
+    return { plaintext: new TextDecoder().decode(result), key: key };
+  }
+
+  /**
+   * Return the Base64-encoded 16-byte salt from a ciphertext blob.
+   * Used as the localStorage key-cache slot's identifier.
+   */
+  function saltB64FromCT(ciphertextB64) {
+    var buf  = b64ToBuffer(ciphertextB64);
+    var salt = new Uint8Array(buf.slice(0, 16));
+    return btoa(String.fromCharCode.apply(null, salt));
+  }
+
+  /**
+   * Decrypt with the given passphrase, then fire-and-forget export the
+   * derived key to localStorage (keyed by salt, bounded by TTL).
+   * Tries 310k iterations first; falls back to 100k for legacy content.
+   */
+  async function decryptAndCache(ciphertextB64, passphrase) {
+    var saltB64 = saltB64FromCT(ciphertextB64);
+    var res;
+    try {
+      res = await _decryptExtractable(ciphertextB64, passphrase, ITER_CURRENT);
+    } catch (_) {
+      res = await _decryptExtractable(ciphertextB64, passphrase, ITER_LEGACY);
+    }
+    _saveKeyToCache(saltB64, res.key); // async, fire-and-forget
+    return res.plaintext;
+  }
+
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // PASSPHRASE — session-scoped, cleared on tab close
+  // PASSPHRASE — two-layer cache
+  //   Layer 1 (session):  sessionStorage — passphrase string, tab-scoped
+  //   Layer 2 (persist):  localStorage   — derived AES key bytes per salt, TTL-bound
+  //
+  // Why store the key, not the passphrase?
+  //   An attacker reading localStorage gets 32 bytes of AES key material.
+  //   They cannot reverse-engineer the passphrase from it (PBKDF2 is one-way),
+  //   so reuse of the passphrase elsewhere is not exposed.
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  function getPassphrase()   { return sessionStorage.getItem(SESSION_KEY); }
-  function setPassphrase(p)  { sessionStorage.setItem(SESSION_KEY, p); }
-  function clearPassphrase() { sessionStorage.removeItem(SESSION_KEY); }
+  /* --- session layer (current tab only) --- */
+  function getPassphrase()        { return sessionStorage.getItem(SESSION_KEY); }
+  function setPassphrase(p)       { sessionStorage.setItem(SESSION_KEY, p); }
+  function clearSessionPassphrase() { sessionStorage.removeItem(SESSION_KEY); }
+
+  /* --- key-cache helpers --- */
+  function _getKeyTTL() {
+    return (window.$docsify && window.$docsify.ciphertext && window.$docsify.ciphertext.keyTTL != null)
+      ? window.$docsify.ciphertext.keyTTL
+      : KEY_TTL_MS;
+  }
+  function _readCache()  { try { return JSON.parse(localStorage.getItem(PERSIST_KEY) || '{}'); } catch (_) { return {}; } }
+  function _writeCache(c) { try { localStorage.setItem(PERSIST_KEY, JSON.stringify(c)); } catch (_) {} }
+
+  /** Export a CryptoKey and store it in localStorage keyed by the ciphertext's salt. */
+  function _saveKeyToCache(saltB64, cryptoKey) {
+    crypto.subtle.exportKey('raw', cryptoKey).then(function (raw) {
+      var keyB64 = btoa(String.fromCharCode.apply(null, new Uint8Array(raw)));
+      var ttl    = _getKeyTTL();
+      var cache  = _readCache();
+      // exp === null means never expires
+      cache[saltB64] = { k: keyB64, exp: isFinite(ttl) ? Date.now() + ttl : null };
+      // Prune entries that have a finite expiry and are past it
+      var now = Date.now();
+      Object.keys(cache).forEach(function (k) {
+        if (cache[k].exp !== null && cache[k].exp < now) delete cache[k];
+      });
+      _writeCache(cache);
+    }).catch(function () { /* exportKey not supported — skip caching silently */ });
+  }
+
+  /**
+   * Return an importable CryptoKey from the localStorage cache for the given
+   * salt, or null if missing / expired / invalid.
+   */
+  async function _loadKeyFromCache(saltB64) {
+    var cache = _readCache();
+    var entry = cache[saltB64];
+    if (!entry) return null;
+    // entry.exp === null means no expiry; otherwise check TTL
+    if (entry.exp !== null && Date.now() > entry.exp) {
+      delete cache[saltB64]; _writeCache(cache);
+      return null;
+    }
+    try {
+      var bin = atob(entry.k);
+      var raw = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) raw[i] = bin.charCodeAt(i);
+      return await crypto.subtle.importKey('raw', raw.buffer, { name: 'AES-GCM' }, false, ['decrypt']);
+    } catch (_) {
+      delete cache[saltB64];
+      _writeCache(cache);
+      return null;
+    }
+  }
+
+  /**
+   * Try to decrypt using the AES key stored in localStorage.
+   * Returns plaintext string, or null if no valid cached key exists.
+   * On success: instant — no PBKDF2 needed.
+   */
+  async function decryptWithCachedKey(ciphertextB64) {
+    var saltB64 = saltB64FromCT(ciphertextB64);
+    var key = await _loadKeyFromCache(saltB64);
+    if (!key) return null;
+    try {
+      var buf     = b64ToBuffer(ciphertextB64);
+      var iv      = buf.slice(16, 28);
+      var authTag = buf.slice(28, 44);
+      var data    = buf.slice(44);
+      var payload = new Uint8Array(data.byteLength + authTag.byteLength);
+      payload.set(new Uint8Array(data));
+      payload.set(new Uint8Array(authTag), data.byteLength);
+      var result = await crypto.subtle.decrypt(
+        { name: 'AES-GCM', iv: iv, tagLength: 128 },
+        key, payload.buffer
+      );
+      return new TextDecoder().decode(result);
+    } catch (_) {
+      // Cached key is stale / mismatch — evict it
+      var cache = _readCache();
+      delete cache[saltB64];
+      _writeCache(cache);
+      return null;
+    }
+  }
+
+  /** Clear the session passphrase AND the entire localStorage key cache. */
+  function clearPassphrase() {
+    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(PERSIST_KEY);
+  }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // STYLES
@@ -343,44 +502,40 @@
       if (icon) icon.textContent = '\u23F3';
       row.classList.add('cipher-row--busy');
 
-      var passphrase = getPassphrase();
-      var plaintext  = null;
+      // 1. Fast path: AES key cached in localStorage — no passphrase, no PBKDF2
+      var plaintext = await decryptWithCachedKey(ct);
+      if (plaintext) { showDecrypted(block, ct, plaintext); return; }
 
-      // 1. Try the cached passphrase first
+      // 2. Session passphrase (same tab, still open)
+      var passphrase    = getPassphrase();
+      var hadPassphrase = !!passphrase;
       if (passphrase) {
-        try { plaintext = await decryptCiphertext(ct, passphrase); } catch (_) {}
+        try { plaintext = await decryptAndCache(ct, passphrase); } catch (_) {}
+        if (plaintext) { showDecrypted(block, ct, plaintext); return; }
+        // Wrong passphrase in session cache — clear only the session entry
+        clearSessionPassphrase();
       }
 
-      // 2. If that failed (or no cached passphrase), ask the user
+      // 3. Ask the user
+      passphrase = await askPassphrase(hadPassphrase ? 'Incorrect passphrase \u2014 try again.' : '');
+      if (!passphrase) {
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+        if (icon) icon.textContent = '\uD83D\uDD12';
+        row.classList.remove('cipher-row--busy');
+        return;
+      }
+
+      try { plaintext = await decryptAndCache(ct, passphrase); } catch (_) {}
       if (!plaintext) {
-        var hadPassphrase = !!passphrase;
-        if (hadPassphrase) clearPassphrase();
-
-        passphrase = await askPassphrase(hadPassphrase ? 'Incorrect passphrase \u2014 try again.' : '');
-
-        if (!passphrase) {
-          // User cancelled
-          btn.disabled = false;
-          btn.textContent = 'Unlock';
-          if (icon) icon.textContent = '\uD83D\uDD12';
-          row.classList.remove('cipher-row--busy');
-          return;
-        }
-
-        try { plaintext = await decryptCiphertext(ct, passphrase); } catch (_) {}
-
-        if (!plaintext) {
-          clearPassphrase();
-          btn.disabled = false;
-          btn.textContent = 'Unlock';
-          if (icon) icon.textContent = '\u274C';
-          row.classList.remove('cipher-row--busy');
-          return;
-        }
-
-        setPassphrase(passphrase);
+        btn.disabled = false;
+        btn.textContent = 'Unlock';
+        if (icon) icon.textContent = '\u274C';
+        row.classList.remove('cipher-row--busy');
+        return;
       }
 
+      setPassphrase(passphrase);
       showDecrypted(block, ct, plaintext);
     });
   }
@@ -424,7 +579,9 @@
     /**
      * doneEach: wire event listeners after the DOM is live.
      * Uses data-wired to avoid double-binding on re-renders.
-     * Auto-decrypts any block when a valid passphrase is in sessionStorage.
+     * Auto-decrypts via (in order of priority):
+     *   1. localStorage AES key cache — instant, cross-session
+     *   2. sessionStorage passphrase  — current tab only
      */
     hook.doneEach(function () {
       injectStyles();
@@ -435,14 +592,24 @@
         block.dataset.wired = '1';
         bindBlock(block);
 
-        if (passphrase) {
-          var ct = block.dataset.ct;
-          decryptCiphertext(ct, passphrase)
-            .then(function (plain) {
-              if (plain) showDecrypted(block, ct, plain);
-            })
-            .catch(function () { /* wrong passphrase — just leave it locked */ });
-        }
+        var ct = block.dataset.ct;
+
+        // Try cached key first (works across sessions within TTL)
+        decryptWithCachedKey(ct).then(function (plain) {
+          if (plain) { showDecrypted(block, ct, plain); return; }
+          // Fallback: session passphrase (same tab, no cached key yet)
+          if (passphrase) {
+            decryptCiphertext(ct, passphrase)
+              .then(function (p) { if (p) showDecrypted(block, ct, p); })
+              .catch(function () {});
+          }
+        }).catch(function () {
+          if (passphrase) {
+            decryptCiphertext(ct, passphrase)
+              .then(function (p) { if (p) showDecrypted(block, ct, p); })
+              .catch(function () {});
+          }
+        });
       });
     });
   }
